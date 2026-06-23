@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AttachmentsModule } from './attachments/attachments.module';
 import { AuthModule } from './auth/auth.module';
 import { BoardsModule } from './boards/boards.module';
 import { CardsModule } from './cards/cards.module';
@@ -22,6 +23,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     LabelsModule,
     CommentsModule,
     UsersModule,
+    AttachmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
