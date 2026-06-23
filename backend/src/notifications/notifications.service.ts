@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PushService } from '../push/push.service';
 
 interface CreateNotificationData {
   userId: string;
@@ -13,7 +14,10 @@ interface CreateNotificationData {
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pushService: PushService,
+  ) {}
 
   findAll(userId: string) {
     return this.prisma.notification.findMany({
@@ -53,11 +57,19 @@ export class NotificationsService {
     });
   }
 
-  createNotification(data: CreateNotificationData) {
-    return this.prisma.notification.create({
+  async createNotification(data: CreateNotificationData) {
+    const notification = await this.prisma.notification.create({
       data,
       include: this.notificationInclude,
     });
+
+    await this.pushService.sendPushNotification(data.userId, {
+      title: data.type,
+      body: data.message,
+      url: data.relatedBoardId ? `/b/${data.relatedBoardId}` : '/notifications',
+    });
+
+    return notification;
   }
 
   private readonly notificationInclude = {
