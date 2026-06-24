@@ -1,49 +1,53 @@
-<main class="flex min-h-screen items-center justify-center bg-base-200 px-4 py-10">
-  <section class="w-full max-w-md rounded-lg bg-base-100 p-6 shadow-xl">
+<main class="flex min-h-screen items-center justify-center px-4 py-10">
+  <section class="app-card w-full max-w-md p-6">
     <div class="mb-6 text-center">
       <h1 class="text-2xl font-semibold">Registracija</h1>
-      <p class="mt-2 text-sm text-base-content/70">Kreiraj nalog i odmah nastavi u aplikaciju.</p>
+      <p class="app-muted mt-2 text-sm">Kreiraj nalog i odmah nastavi u aplikaciju.</p>
     </div>
 
     <form class="space-y-4" [formGroup]="form" (ngSubmit)="submit()">
-      <label class="form-control">
-        <span class="label-text mb-2">Ime za prikaz</span>
+      <label class="block">
+        <span class="app-label">Ime za prikaz</span>
         <input
           type="text"
           formControlName="displayName"
           autocomplete="name"
-          class="input input-bordered w-full"
+          class="app-input"
           placeholder="Tvoje ime"
         />
       </label>
 
-      <label class="form-control">
-        <span class="label-text mb-2">Email</span>
+      <label class="block">
+        <span class="app-label">Email</span>
         <input
           type="email"
           formControlName="email"
           autocomplete="email"
-          class="input input-bordered w-full"
+          class="app-input"
           placeholder="ime@example.com"
         />
       </label>
 
-      <label class="form-control">
-        <span class="label-text mb-2">Lozinka</span>
+      <label class="block">
+        <span class="app-label">Lozinka</span>
         <input
           type="password"
           formControlName="password"
           autocomplete="new-password"
-          class="input input-bordered w-full"
+          class="app-input"
           placeholder="Najmanje 6 karaktera"
         />
       </label>
 
       @if (error$ | async; as error) {
-        <div class="alert alert-error text-sm">{{ error }}</div>
+        <div class="app-error text-sm">{{ error }}</div>
       }
 
-      <button type="submit" class="btn btn-primary w-full" [disabled]="form.invalid || (loading$ | async)">
+      <button
+        type="submit"
+        class="app-button app-button-primary w-full"
+        [disabled]="form.invalid || (loading$ | async)"
+      >
         @if (loading$ | async) {
           <span class="loading loading-spinner loading-sm"></span>
         }
@@ -51,9 +55,9 @@
       </button>
     </form>
 
-    <p class="mt-6 text-center text-sm">
-      Već imaš nalog?
-      <a routerLink="/login" class="link link-primary font-medium">Prijavi se</a>
+    <p class="app-muted mt-6 text-center text-sm">
+      Vec imas nalog?
+      <a routerLink="/login" class="font-medium">Prijavi se</a>
     </p>
   </section>
 </main>
