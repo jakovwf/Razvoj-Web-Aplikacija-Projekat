@@ -29,6 +29,7 @@ export class CardDetailComponent implements OnChanges {
   newCommentContent = '';
   editingCommentId: string | null = null;
   editCommentContent = '';
+  private lastLoadedCommentsCardId: string | null = null;
 
   readonly form = this.formBuilder.nonNullable.group({
     title: ['', [Validators.required, Validators.minLength(1)]],
@@ -36,18 +37,26 @@ export class CardDetailComponent implements OnChanges {
   });
 
   ngOnChanges(changes: SimpleChanges): void {
-    if ('card' in changes && this.card) {
-      this.form.setValue({
-        title: this.card.title,
-        description: this.card.description ?? '',
-      });
-      this.resetCommentEditor();
-      this.loadComments(this.card.id);
-    }
+    if ('card' in changes) {
+      const card = this.card;
+      const cardId = card?.id ?? null;
 
-    if ('card' in changes && !this.card) {
-      this.comments = [];
-      this.resetCommentEditor();
+      if (!card || !cardId) {
+        this.resetCommentsState();
+        this.lastLoadedCommentsCardId = null;
+        return;
+      }
+
+      this.form.setValue({
+        title: card.title,
+        description: card.description ?? '',
+      });
+
+      if (cardId !== this.lastLoadedCommentsCardId) {
+        this.lastLoadedCommentsCardId = cardId;
+        this.resetCommentsState();
+        this.loadComments(cardId);
+      }
     }
   }
 
@@ -186,5 +195,13 @@ export class CardDetailComponent implements OnChanges {
   private resetCommentEditor(): void {
     this.editingCommentId = null;
     this.editCommentContent = '';
+  }
+
+  private resetCommentsState(): void {
+    this.comments = [];
+    this.newCommentContent = '';
+    this.commentsError = null;
+    this.commentsLoading = false;
+    this.resetCommentEditor();
   }
 }
