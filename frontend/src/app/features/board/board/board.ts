@@ -132,9 +132,11 @@ export class Board {
       .pipe(take(1))
       .subscribe({
         next: (comment) => {
+          const currentComments = this.getCommentsForCard(event.cardId);
+
           this.commentsByCardId = {
             ...this.commentsByCardId,
-            [event.cardId]: [...(this.commentsByCardId[event.cardId] ?? []), comment],
+            [event.cardId]: [...currentComments, comment],
           };
           this.commentsLoading = false;
         },
@@ -159,9 +161,11 @@ export class Board {
       .pipe(take(1))
       .subscribe({
         next: (updatedComment) => {
+          const currentComments = this.getCommentsForCard(event.cardId);
+
           this.commentsByCardId = {
             ...this.commentsByCardId,
-            [event.cardId]: (this.commentsByCardId[event.cardId] ?? []).map((comment) =>
+            [event.cardId]: currentComments.map((comment) =>
               comment.id === updatedComment.id ? updatedComment : comment,
             ),
           };
@@ -182,11 +186,11 @@ export class Board {
       .pipe(take(1))
       .subscribe({
         next: (deletedComment) => {
+          const currentComments = this.getCommentsForCard(event.cardId);
+
           this.commentsByCardId = {
             ...this.commentsByCardId,
-            [event.cardId]: (this.commentsByCardId[event.cardId] ?? []).filter(
-              (comment) => comment.id !== deletedComment.id,
-            ),
+            [event.cardId]: currentComments.filter((comment) => comment.id !== deletedComment.id),
           };
           this.commentsLoading = false;
         },
@@ -333,6 +337,10 @@ export class Board {
 
   private getBoardCards(board: BoardModel): Card[] {
     return (board.lists ?? []).flatMap((list) => list.cards ?? []);
+  }
+
+  private getCommentsForCard(cardId: string): CardComment[] {
+    return this.commentsByCardId[cardId] ?? [];
   }
 
   private resetBoardComments(): void {
