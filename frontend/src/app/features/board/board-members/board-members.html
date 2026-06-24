@@ -1,1 +1,96 @@
-<p>board members stranica</p>
+<main class="mx-auto max-w-5xl px-4 py-8">
+  <a [routerLink]="boardId ? ['/b', boardId] : ['/home']" class="link link-primary mb-4 inline-block">
+    Nazad na board
+  </a>
+
+  <header class="mb-6">
+    <h1 class="text-3xl font-semibold">Clanovi boarda</h1>
+    @if (board) {
+      <p class="mt-2 text-base-content/70">{{ board.title }}</p>
+    }
+  </header>
+
+  @if (loading) {
+    <p class="text-sm text-base-content/70">Ucitavanje clanova...</p>
+  }
+
+  @if (error) {
+    <div class="alert alert-error mb-4 text-sm">{{ error }}</div>
+  }
+
+  <section class="grid gap-6 lg:grid-cols-[1fr_22rem]">
+    <div class="rounded-lg border border-base-300 bg-base-100 p-4">
+      <h2 class="mb-4 text-xl font-semibold">Clanovi</h2>
+
+      @if (members.length > 0) {
+        <ul class="space-y-3">
+          @for (member of members; track member.id) {
+            <li class="flex items-start justify-between gap-3 rounded border border-base-300 p-3">
+              <div class="min-w-0">
+                <p class="truncate font-medium">
+                  {{ member.user?.displayName ?? member.user?.email ?? member.userId }}
+                </p>
+                @if (member.user?.email) {
+                  <p class="text-sm text-base-content/60">{{ member.user?.email }}</p>
+                }
+              </div>
+              <span class="badge badge-outline shrink-0">{{ member.role }}</span>
+            </li>
+          }
+        </ul>
+      } @else if (!loading) {
+        <p class="text-sm text-base-content/70">Nema clanova za prikaz.</p>
+      }
+    </div>
+
+    <aside class="rounded-lg border border-base-300 bg-base-100 p-4">
+      <h2 class="mb-4 text-xl font-semibold">Invite</h2>
+
+      <form class="mb-6 grid gap-3" [formGroup]="inviteForm" (ngSubmit)="createInvite()">
+        <label class="form-control w-full">
+          <div class="label">
+            <span class="label-text">Email korisnika</span>
+          </div>
+          <input
+            type="email"
+            formControlName="email"
+            class="input input-bordered w-full"
+            placeholder="korisnik@example.com"
+          />
+        </label>
+
+        <button type="submit" class="btn btn-primary" [disabled]="inviteForm.invalid || inviteSaving">
+          @if (inviteSaving) {
+            <span class="loading loading-spinner loading-sm"></span>
+          }
+          Posalji invite
+        </button>
+      </form>
+
+      <h3 class="mb-3 font-semibold">Pending invite-ovi</h3>
+
+      @if (invites.length > 0) {
+        <ul class="space-y-3">
+          @for (invite of invites; track invite.id) {
+            <li class="rounded border border-base-300 p-3">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="truncate font-medium">{{ invite.invitedEmail }}</p>
+                  <p class="text-xs text-base-content/60">Role: {{ invite.role }}</p>
+                  <a [routerLink]="['/invite', invite.token]" class="link link-primary text-xs">
+                    Otvori invite link
+                  </a>
+                </div>
+                <button type="button" class="btn btn-error btn-xs" (click)="revokeInvite(invite.id)">
+                  Povuci
+                </button>
+              </div>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="text-sm text-base-content/70">Nema pending invite-ova.</p>
+      }
+    </aside>
+  </section>
+</main>

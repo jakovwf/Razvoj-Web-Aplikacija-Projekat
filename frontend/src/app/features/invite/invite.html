@@ -1,1 +1,62 @@
-<p>invite stranica</p>
+<main class="flex min-h-screen items-center justify-center bg-base-200 px-4 py-10">
+  <section class="card w-full max-w-lg border border-base-300 bg-base-100 shadow-xl">
+    <div class="card-body gap-5">
+      <header>
+        <p class="text-sm font-semibold uppercase tracking-wide text-primary">Board invite</p>
+        <h1 class="mt-2 text-3xl font-bold">Pozivnica za board</h1>
+      </header>
+
+      @if (loading) {
+        <p class="text-sm text-base-content/70">Ucitavanje invite-a...</p>
+      }
+
+      @if (error) {
+        <div class="alert alert-error text-sm">{{ error }}</div>
+      }
+
+      @if (invite) {
+        <div class="rounded-lg border border-base-300 bg-base-200 p-4">
+          <p class="text-sm text-base-content/60">Board</p>
+          <p class="text-xl font-semibold">{{ invite.board?.title ?? 'Board' }}</p>
+
+          <div class="mt-4 grid gap-2 text-sm">
+            <p>
+              <span class="text-base-content/60">Invite za:</span>
+              {{ invite.invitedEmail }}
+            </p>
+            <p>
+              <span class="text-base-content/60">Role:</span>
+              {{ invite.role }}
+            </p>
+            <p>
+              <span class="text-base-content/60">Status:</span>
+              {{ invite.status }}
+            </p>
+            @if (invite.invitedBy) {
+              <p>
+                <span class="text-base-content/60">Pozvao:</span>
+                {{ invite.invitedBy.displayName || invite.invitedBy.email }}
+              </p>
+            }
+          </div>
+        </div>
+
+        @if (invite.status === 'PENDING') {
+          <div class="flex flex-col gap-2 sm:flex-row">
+            <button type="button" class="btn btn-primary flex-1" [disabled]="actionLoading" (click)="acceptInvite()">
+              @if (actionLoading) {
+                <span class="loading loading-spinner loading-sm"></span>
+              }
+              Prihvati
+            </button>
+            <button type="button" class="btn btn-outline flex-1" [disabled]="actionLoading" (click)="declineInvite()">
+              Odbij
+            </button>
+          </div>
+        } @else {
+          <p class="text-sm text-base-content/70">Ovaj invite vise nije pending.</p>
+        }
+      }
+    </div>
+  </section>
+</main>

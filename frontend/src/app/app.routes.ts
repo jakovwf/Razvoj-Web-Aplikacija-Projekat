@@ -19,6 +19,7 @@ export const routes: Routes = [
   { path: 'login', component: Login, canActivate: [GuestGuard] },
   { path: 'register', component: Register, canActivate: [GuestGuard] },
   { path: 'invite/:token', component: Invite },
+  { path: 'invites/:token', component: Invite },
   {
     path: '',
     canActivate: [AuthGuard],

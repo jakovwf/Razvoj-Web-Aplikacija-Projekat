@@ -61,7 +61,7 @@ export class AuthEffects {
         ofType(loginSuccess),
         tap(({ token }) => {
           localStorage.setItem('auth_token', token);
-          this.router.navigate(['/home']);
+          void this.router.navigateByUrl(this.getLoginRedirectUrl());
         }),
       ),
     { dispatch: false },
@@ -118,5 +118,13 @@ export class AuthEffects {
     }
 
     return 'Request failed.';
+  }
+
+  private getLoginRedirectUrl(): string {
+    const returnUrl = this.router.parseUrl(this.router.url).queryParams['returnUrl'];
+
+    return typeof returnUrl === 'string' && returnUrl.startsWith('/') && !returnUrl.startsWith('//')
+      ? returnUrl
+      : '/home';
   }
 }

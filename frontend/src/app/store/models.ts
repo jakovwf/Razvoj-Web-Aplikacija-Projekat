@@ -14,6 +14,32 @@ export interface BoardMember {
   user?: User;
 }
 
+export type BoardMemberRole = BoardMember['role'];
+export type InviteStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED';
+
+export interface BoardInvite {
+  id: string;
+  token: string;
+  invitedEmail: string;
+  status: InviteStatus;
+  role: BoardMemberRole;
+  expiresAt: string;
+  boardId?: string;
+  invitedByUserId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  board?: {
+    id: string;
+    title: string;
+  };
+  invitedBy?: User;
+}
+
+export interface AcceptInviteResponse {
+  invite: BoardInvite;
+  boardMember: BoardMember;
+}
+
 export interface WorkspaceMember {
   id: string;
   workspaceId: string;

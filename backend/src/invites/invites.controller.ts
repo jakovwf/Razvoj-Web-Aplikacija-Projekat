@@ -57,6 +57,13 @@ export class InvitesController {
     return this.invitesService.revoke(id);
   }
 
+  @UseGuards(JwtAuthGuard, BoardRoleGuard)
+  @Roles(BoardMemberRole.OWNER, BoardMemberRole.ADMIN)
+  @Delete('boards/:boardId/invites/:inviteId')
+  revokeForBoard(@Param('inviteId') inviteId: string) {
+    return this.invitesService.revoke(inviteId);
+  }
+
   @Get('invites/:token')
   preview(@Param('token') token: string) {
     return this.invitesService.preview(token);

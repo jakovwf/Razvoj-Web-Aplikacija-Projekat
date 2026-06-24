@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Board } from '../../store/models';
+import { Board, BoardInvite, BoardMember } from '../../store/models';
 
 export interface CreateBoardData {
   title: string;
@@ -14,6 +14,10 @@ export interface UpdateBoardData {
   title?: string;
   description?: string;
   backgroundUrl?: string;
+}
+
+export interface CreateBoardInviteData {
+  inviteeEmail: string;
 }
 
 export interface ReorderListItem {
@@ -45,6 +49,22 @@ export class BoardService {
 
   getBoard(boardId: string): Observable<Board> {
     return this.http.get<Board>(`${this.boardsApiUrl}/${boardId}`);
+  }
+
+  getBoardMembers(boardId: string): Observable<BoardMember[]> {
+    return this.http.get<BoardMember[]>(`${this.boardsApiUrl}/${boardId}/members`);
+  }
+
+  getBoardInvites(boardId: string): Observable<BoardInvite[]> {
+    return this.http.get<BoardInvite[]>(`${this.boardsApiUrl}/${boardId}/invites`);
+  }
+
+  createBoardInvite(boardId: string, data: CreateBoardInviteData): Observable<BoardInvite> {
+    return this.http.post<BoardInvite>(`${this.boardsApiUrl}/${boardId}/invites`, data);
+  }
+
+  deleteBoardInvite(boardId: string, inviteId: string): Observable<BoardInvite> {
+    return this.http.delete<BoardInvite>(`${this.boardsApiUrl}/${boardId}/invites/${inviteId}`);
   }
 
   updateBoard(boardId: string, data: UpdateBoardData): Observable<Board> {

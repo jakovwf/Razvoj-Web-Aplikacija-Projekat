@@ -219,16 +219,24 @@ export class InvitesService {
     boardTitle: string,
     token: string,
   ) {
-    const frontendUrl = process.env.FRONTEND_URL?.replace(/\/$/, '') ?? '';
-    const inviteUrl = `${frontendUrl}/invites/${token}`;
+    if (!process.env.MAIL_HOST || !process.env.MAIL_USER || !process.env.MAIL_PASS) {
+      return;
+    }
 
-    await this.mailerService.sendMail({
-      to: invitedEmail,
-      from: process.env.MAIL_FROM,
-      subject: `Invite to board ${boardTitle}`,
-      text: `You have been invited to board "${boardTitle}". Open this link to respond: ${inviteUrl}`,
-      html: `<p>You have been invited to board <strong>${boardTitle}</strong>.</p><p><a href="${inviteUrl}">Open invite</a></p>`,
-    });
+    const frontendUrl = process.env.FRONTEND_URL?.replace(/\/$/, '') ?? '';
+    const inviteUrl = `${frontendUrl}/invite/${token}`;
+
+    try {
+      await this.mailerService.sendMail({
+        to: invitedEmail,
+        from: process.env.MAIL_FROM,
+        subject: `Invite to board ${boardTitle}`,
+        text: `You have been invited to board "${boardTitle}". Open this link to respond: ${inviteUrl}`,
+        html: `<p>You have been invited to board <strong>${boardTitle}</strong>.</p><p><a href="${inviteUrl}">Open invite</a></p>`,
+      });
+    } catch (error) {
+      console.warn('Invite email was not sent.', error);
+    }
   }
 
   private readonly safeUserSelect = {
