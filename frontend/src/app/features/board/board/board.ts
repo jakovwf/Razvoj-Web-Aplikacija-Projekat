@@ -1,15 +1,19 @@
 import { AsyncPipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { CdkDragDrop, DragDropModule, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
+import { Component, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
-import { map } from 'rxjs';
+import { distinctUntilChanged, map } from 'rxjs';
 import {
   createCard,
   createList,
   deleteCard,
   deleteList,
   loadBoard,
+  reorderCards,
+  reorderLists,
   updateCard,
   updateList,
 } from '../../../store/boards/boards.actions';
@@ -18,11 +22,11 @@ import {
   selectBoardsLoading,
   selectSelectedBoard,
 } from '../../../store/boards/boards.selectors';
-import { Card } from '../../../store/models';
+import { BoardList, Card } from '../../../store/models';
 
 @Component({
   selector: 'app-board',
-  imports: [AsyncPipe, ReactiveFormsModule, RouterLink],
+  imports: [AsyncPipe, DragDropModule, ReactiveFormsModule, RouterLink],
   templateUrl: './board.html',
   styleUrl: './board.scss',
 })
@@ -34,7 +38,8 @@ export class Board {
   readonly board$ = this.store.select(selectSelectedBoard);
   readonly loading$ = this.store.select(selectBoardsLoading);
   readonly error$ = this.store.select(selectBoardsError);
-  readonly selectedCard = signal<Card | null>(null);
+  readonly emptyCards: Card[] = [];
+  selectedCard: Card | null = null;
 
   readonly listForm = this.formBuilder.nonNullable.group({
     title: ['', [Validators.required, Validators.minLength(1)]],
@@ -47,7 +52,11 @@ export class Board {
 
   constructor() {
     this.route.paramMap
-      .pipe(map((params) => params.get('boardId')))
+      .pipe(
+        map((params) => params.get('boardId')),
+        distinctUntilChanged(),
+        takeUntilDestroyed(),
+      )
       .subscribe((boardId) => {
         if (boardId) {
           this.store.dispatch(loadBoard({ boardId }));
@@ -94,7 +103,7 @@ export class Board {
   }
 
   openCard(card: Card): void {
-    this.selectedCard.set(card);
+    this.selectedCard = card;
     this.cardEditForm.setValue({
       title: card.title,
       description: card.description ?? '',
@@ -102,12 +111,12 @@ export class Board {
   }
 
   closeCard(): void {
-    this.selectedCard.set(null);
+    this.selectedCard = null;
     this.cardEditForm.reset();
   }
 
   saveSelectedCard(): void {
-    const card = this.selectedCard();
+    const card = this.selectedCard;
 
     if (!card || this.cardEditForm.invalid) {
       this.cardEditForm.markAllAsTouched();
@@ -126,7 +135,7 @@ export class Board {
   }
 
   removeSelectedCard(): void {
-    const card = this.selectedCard();
+    const card = this.selectedCard;
 
     if (!card) {
       return;
@@ -134,5 +143,79 @@ export class Board {
 
     this.store.dispatch(deleteCard({ cardId: card.id }));
     this.closeCard();
+  }
+
+  cardDropListIds(lists: BoardList[] | null | undefined): string[] {
+    return (lists ?? []).map((list) => list.id);
+  }
+
+  dropList(event: CdkDragDrop<BoardList[]>, boardId: string, lists: BoardList[]): void {
+    if (event.previousIndex === event.currentIndex) {
+      return;
+    }
+
+    const reorderedLists = [...lists];
+    moveItemInArray(reorderedLists, event.previousIndex, event.currentIndex);
+
+    this.store.dispatch(
+      reorderLists({
+        boardId,
+        items: reorderedLists.map((list, index) => ({
+          id: list.id,
+          position: index + 1,
+        })),
+      }),
+    );
+  }
+
+  dropCard(event: CdkDragDrop<Card[]>, boardId: string): void {
+    const targetListId = event.container.id;
+    const previousListId = event.previousContainer.id;
+
+    if (
+      previousListId === targetListId &&
+      event.previousIndex === event.currentIndex
+    ) {
+      return;
+    }
+
+    if (event.previousContainer === event.container) {
+      const cards = [...event.container.data];
+      moveItemInArray(cards, event.previousIndex, event.currentIndex);
+
+      this.store.dispatch(
+        reorderCards({
+          boardId,
+          items: cards.map((card, index) => ({
+            id: card.id,
+            listId: targetListId,
+            position: index + 1,
+          })),
+        }),
+      );
+      return;
+    }
+
+    const previousCards = [...event.previousContainer.data];
+    const targetCards = [...event.container.data];
+    transferArrayItem(previousCards, targetCards, event.previousIndex, event.currentIndex);
+
+    this.store.dispatch(
+      reorderCards({
+        boardId,
+        items: [
+          ...previousCards.map((card, index) => ({
+            id: card.id,
+            listId: previousListId,
+            position: index + 1,
+          })),
+          ...targetCards.map((card, index) => ({
+            id: card.id,
+            listId: targetListId,
+            position: index + 1,
+          })),
+        ],
+      }),
+    );
   }
 }

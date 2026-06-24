@@ -26,6 +26,12 @@ import {
   loadMyBoards,
   loadMyBoardsFailure,
   loadMyBoardsSuccess,
+  reorderCards,
+  reorderCardsFailure,
+  reorderCardsSuccess,
+  reorderLists,
+  reorderListsFailure,
+  reorderListsSuccess,
   updateCard,
   updateCardFailure,
   updateCardSuccess,
@@ -144,6 +150,30 @@ export class BoardsEffects {
         this.cardService.deleteCard(cardId).pipe(
           map((card) => deleteCardSuccess({ cardId: card.id, listId: card.listId })),
           catchError((error: unknown) => of(deleteCardFailure({ error: this.getErrorMessage(error) }))),
+        ),
+      ),
+    ),
+  );
+
+  readonly reorderLists$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(reorderLists),
+      switchMap(({ boardId, items }) =>
+        this.boardService.reorderLists(boardId, items).pipe(
+          map((lists) => reorderListsSuccess({ lists: lists ?? [] })),
+          catchError((error: unknown) => of(reorderListsFailure({ error: this.getErrorMessage(error) }))),
+        ),
+      ),
+    ),
+  );
+
+  readonly reorderCards$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(reorderCards),
+      switchMap(({ boardId, items }) =>
+        this.boardService.reorderCards(boardId, items).pipe(
+          map((cards) => reorderCardsSuccess({ cards: cards ?? [] })),
+          catchError((error: unknown) => of(reorderCardsFailure({ error: this.getErrorMessage(error) }))),
         ),
       ),
     ),

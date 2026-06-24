@@ -10,6 +10,17 @@ export interface CreateBoardData {
   backgroundUrl?: string;
 }
 
+export interface ReorderListItem {
+  id: string;
+  position: number;
+}
+
+export interface ReorderCardItem {
+  id: string;
+  listId: string;
+  position: number;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -28,5 +39,18 @@ export class BoardService {
 
   getBoard(boardId: string): Observable<Board> {
     return this.http.get<Board>(`${this.boardsApiUrl}/${boardId}`);
+  }
+
+  reorderLists(boardId: string, items: ReorderListItem[]): Observable<Board['lists']> {
+    return this.http.patch<Board['lists']>(`${this.boardsApiUrl}/${boardId}/lists/reorder`, {
+      items,
+    });
+  }
+
+  reorderCards(boardId: string, items: ReorderCardItem[]): Observable<NonNullable<Board['lists']>[number]['cards']> {
+    return this.http.patch<NonNullable<Board['lists']>[number]['cards']>(
+      `${this.boardsApiUrl}/${boardId}/cards/reorder`,
+      { items },
+    );
   }
 }

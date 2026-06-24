@@ -25,6 +25,12 @@ import {
   loadMyBoardsFailure,
   loadMyBoardsSuccess,
   removeBoard,
+  reorderCards,
+  reorderCardsFailure,
+  reorderCardsSuccess,
+  reorderLists,
+  reorderListsFailure,
+  reorderListsSuccess,
   updateBoard,
   updateCard,
   updateCardFailure,
@@ -60,6 +66,8 @@ export const boardsReducer = createReducer(
     createCard,
     updateCard,
     deleteCard,
+    reorderLists,
+    reorderCards,
     (state) => ({ ...state, loading: true, error: null }),
   ),
   on(loadMyBoardsSuccess, (state, { boards }) =>
@@ -75,6 +83,8 @@ export const boardsReducer = createReducer(
     createCardFailure,
     updateCardFailure,
     deleteCardFailure,
+    reorderListsFailure,
+    reorderCardsFailure,
     (state, { error }) => ({ ...state, loading: false, error }),
   ),
   on(loadBoardSuccess, (state, { board }) =>
@@ -137,6 +147,30 @@ export const boardsReducer = createReducer(
           ? { ...list, cards: (list.cards ?? []).filter((card) => card.id !== cardId) }
           : list,
       ),
+    })),
+  ),
+  on(reorderListsSuccess, (state, { lists }) =>
+    updateSelectedBoard(state, (board) => ({
+      ...board,
+      lists: lists
+        .map((list) => ({
+          ...list,
+          cards: [...(list.cards ?? [])].sort(sortByPosition),
+        }))
+        .sort(sortByPosition),
+    })),
+  ),
+  on(reorderCardsSuccess, (state, { cards }) =>
+    updateSelectedBoard(state, (board) => ({
+      ...board,
+      lists: (board.lists ?? [])
+        .map((list) => ({
+          ...list,
+          cards: cards
+            .filter((card) => card.listId === list.id)
+            .sort(sortByPosition),
+        }))
+        .sort(sortByPosition),
     })),
   ),
   on(addBoard, (state, { board }) => boardsAdapter.addOne(board, state)),
