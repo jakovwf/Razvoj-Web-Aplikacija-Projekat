@@ -1,11 +1,23 @@
 import { EntityState, createEntityAdapter } from '@ngrx/entity';
 import { createReducer, on } from '@ngrx/store';
-import { Board } from '../models';
+import { Board, BoardList, Card } from '../models';
 import {
   addBoard,
   createBoard,
   createBoardFailure,
   createBoardSuccess,
+  createCard,
+  createCardFailure,
+  createCardSuccess,
+  createList,
+  createListFailure,
+  createListSuccess,
+  deleteCard,
+  deleteCardFailure,
+  deleteCardSuccess,
+  deleteList,
+  deleteListFailure,
+  deleteListSuccess,
   loadBoard,
   loadBoardFailure,
   loadBoardSuccess,
@@ -14,6 +26,12 @@ import {
   loadMyBoardsSuccess,
   removeBoard,
   updateBoard,
+  updateCard,
+  updateCardFailure,
+  updateCardSuccess,
+  updateList,
+  updateListFailure,
+  updateListSuccess,
 } from './boards.actions';
 
 export interface BoardsState extends EntityState<Board> {
@@ -32,16 +50,33 @@ export const initialBoardsState: BoardsState = boardsAdapter.getInitialState({
 
 export const boardsReducer = createReducer(
   initialBoardsState,
-  on(loadMyBoards, loadBoard, createBoard, (state) => ({ ...state, loading: true, error: null })),
+  on(
+    loadMyBoards,
+    loadBoard,
+    createBoard,
+    createList,
+    updateList,
+    deleteList,
+    createCard,
+    updateCard,
+    deleteCard,
+    (state) => ({ ...state, loading: true, error: null }),
+  ),
   on(loadMyBoardsSuccess, (state, { boards }) =>
     boardsAdapter.setAll(boards, { ...state, loading: false, error: null }),
   ),
-  on(loadMyBoardsFailure, loadBoardFailure, (state, { error }) => ({
-    ...state,
-    loading: false,
-    error,
-  })),
-  on(createBoardFailure, (state, { error }) => ({ ...state, loading: false, error })),
+  on(
+    loadMyBoardsFailure,
+    loadBoardFailure,
+    createBoardFailure,
+    createListFailure,
+    updateListFailure,
+    deleteListFailure,
+    createCardFailure,
+    updateCardFailure,
+    deleteCardFailure,
+    (state, { error }) => ({ ...state, loading: false, error }),
+  ),
   on(loadBoardSuccess, (state, { board }) =>
     boardsAdapter.upsertOne(board, {
       ...state,
@@ -53,7 +88,80 @@ export const boardsReducer = createReducer(
   on(createBoardSuccess, (state, { board }) =>
     boardsAdapter.addOne(board, { ...state, loading: false, error: null }),
   ),
+  on(createListSuccess, (state, { list }) =>
+    updateSelectedBoard(state, (board) => ({
+      ...board,
+      lists: [...(board.lists ?? []), list].sort(sortByPosition),
+    })),
+  ),
+  on(updateListSuccess, (state, { list }) =>
+    updateSelectedBoard(state, (board) => ({
+      ...board,
+      lists: (board.lists ?? []).map((existingList) =>
+        existingList.id === list.id ? { ...existingList, ...list } : existingList,
+      ),
+    })),
+  ),
+  on(deleteListSuccess, (state, { listId }) =>
+    updateSelectedBoard(state, (board) => ({
+      ...board,
+      lists: (board.lists ?? []).filter((list) => list.id !== listId),
+    })),
+  ),
+  on(createCardSuccess, (state, { card }) =>
+    updateSelectedBoard(state, (board) => ({
+      ...board,
+      lists: (board.lists ?? []).map((list) =>
+        list.id === card.listId
+          ? { ...list, cards: [...(list.cards ?? []), card].sort(sortByPosition) }
+          : list,
+      ),
+    })),
+  ),
+  on(updateCardSuccess, (state, { card }) =>
+    updateSelectedBoard(state, (board) => ({
+      ...board,
+      lists: (board.lists ?? []).map((list) => ({
+        ...list,
+        cards: (list.cards ?? []).map((existingCard) =>
+          existingCard.id === card.id ? { ...existingCard, ...card } : existingCard,
+        ),
+      })),
+    })),
+  ),
+  on(deleteCardSuccess, (state, { cardId, listId }) =>
+    updateSelectedBoard(state, (board) => ({
+      ...board,
+      lists: (board.lists ?? []).map((list) =>
+        list.id === listId
+          ? { ...list, cards: (list.cards ?? []).filter((card) => card.id !== cardId) }
+          : list,
+      ),
+    })),
+  ),
   on(addBoard, (state, { board }) => boardsAdapter.addOne(board, state)),
   on(updateBoard, (state, { board }) => boardsAdapter.upsertOne(board, state)),
   on(removeBoard, (state, { boardId }) => boardsAdapter.removeOne(boardId, state)),
 );
+
+function updateSelectedBoard(state: BoardsState, update: (board: Board) => Board): BoardsState {
+  if (!state.selectedBoardId) {
+    return { ...state, loading: false };
+  }
+
+  const selectedBoard = state.entities[state.selectedBoardId];
+
+  if (!selectedBoard) {
+    return { ...state, loading: false };
+  }
+
+  return boardsAdapter.upsertOne(update(selectedBoard), {
+    ...state,
+    loading: false,
+    error: null,
+  });
+}
+
+function sortByPosition<T extends BoardList | Card>(a: T, b: T): number {
+  return a.position - b.position;
+}

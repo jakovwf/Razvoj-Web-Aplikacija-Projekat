@@ -39,6 +39,13 @@ export interface Card {
   listId: string;
   dueDate?: string | null;
   createdAt?: string;
+  list?: {
+    id: string;
+    title: string;
+    boardId: string;
+  };
+  members?: unknown[];
+  labels?: unknown[];
 }
 
 export interface BoardList {
