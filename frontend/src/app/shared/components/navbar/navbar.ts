@@ -1,5 +1,5 @@
 import { AsyncPipe } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { logout } from '../../../store/auth/auth.actions';
@@ -12,11 +12,19 @@ import { selectUnreadCount } from '../../../store/notifications/notifications.se
   styleUrl: './navbar.scss',
 })
 export class NavbarComponent {
+  @Input() isSidebarOpen = true;
+
+  @Output() sidebarToggle = new EventEmitter<void>();
+
   private readonly store = inject(Store);
 
   readonly unreadCount$ = this.store.select(selectUnreadCount);
 
   logout(): void {
     this.store.dispatch(logout());
+  }
+
+  toggleSidebar(): void {
+    this.sidebarToggle.emit();
   }
 }
