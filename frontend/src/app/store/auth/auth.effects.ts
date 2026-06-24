@@ -71,10 +71,12 @@ export class AuthEffects {
     () =>
       this.actions$.pipe(
         ofType(logout),
-        tap(() => {
-          this.authService.logout();
-          this.router.navigate(['/login']);
-        }),
+        switchMap(() =>
+          this.authService.logout().pipe(
+            catchError(() => of(null)),
+            tap(() => this.router.navigate(['/login'])),
+          ),
+        ),
       ),
     { dispatch: false },
   );

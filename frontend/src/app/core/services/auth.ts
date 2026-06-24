@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, tap } from 'rxjs';
+import { finalize, Observable, tap } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import { AuthResponse, User } from '../../store/models';
 
 @Injectable({
@@ -8,28 +9,32 @@ import { AuthResponse, User } from '../../store/models';
 })
 export class AuthService {
   private readonly tokenKey = 'auth_token';
-  private readonly apiUrl = '/auth';
+  private readonly authApiUrl = this.buildAuthApiUrl(environment.apiUrl);
 
   constructor(private readonly http: HttpClient) {}
 
   login(email: string, password: string): Observable<AuthResponse> {
     return this.http
-      .post<AuthResponse>(`${this.apiUrl}/login`, { email, password })
+      .post<AuthResponse>(`${this.authApiUrl}/login`, { email, password })
       .pipe(tap((response) => this.storeTokenFromResponse(response)));
   }
 
   register(email: string, password: string, displayName: string): Observable<AuthResponse> {
     return this.http
-      .post<AuthResponse>(`${this.apiUrl}/register`, { email, password, displayName })
+      .post<AuthResponse>(`${this.authApiUrl}/register`, { email, password, displayName })
       .pipe(tap((response) => this.storeTokenFromResponse(response)));
   }
 
-  logout(): void {
+  logout(): Observable<unknown> {
+    return this.http.post<unknown>(`${this.authApiUrl}/logout`, {}).pipe(finalize(() => this.clearToken()));
+  }
+
+  clearToken(): void {
     localStorage.removeItem(this.tokenKey);
   }
 
   me(): Observable<User> {
-    return this.http.get<User>(`${this.apiUrl}/me`);
+    return this.http.get<User>(`${this.authApiUrl}/me`);
   }
 
   getToken(): string | null {
@@ -46,5 +51,11 @@ export class AuthService {
     if (token) {
       localStorage.setItem(this.tokenKey, token);
     }
+  }
+
+  private buildAuthApiUrl(apiUrl: string): string {
+    const normalizedApiUrl = apiUrl.replace(/\/+$/, '');
+
+    return normalizedApiUrl.endsWith('/auth') ? normalizedApiUrl : `${normalizedApiUrl}/auth`;
   }
 }
