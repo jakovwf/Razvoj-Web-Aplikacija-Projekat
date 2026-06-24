@@ -1,12 +1,17 @@
-import { Component } from '@angular/core';
+import { AsyncPipe } from '@angular/common';
+import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { Store } from '@ngrx/store';
+import { selectUnreadCount } from '../../../store/notifications/notifications.selectors';
 
 @Component({
   selector: 'app-navbar',
-  imports: [RouterLink],
+  imports: [AsyncPipe, RouterLink],
   templateUrl: './navbar.html',
   styleUrl: './navbar.scss',
 })
 export class NavbarComponent {
-  readonly unreadCount = 0;
+  private readonly store = inject(Store);
+
+  readonly unreadCount$ = this.store.select(selectUnreadCount);
 }

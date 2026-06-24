@@ -40,7 +40,7 @@
   <div class="navbar-end lg:w-full">
     <a routerLink="/notifications" class="btn btn-ghost btn-square" aria-label="Notifikacije">
       <div class="indicator">
-        <span class="indicator-item badge badge-primary badge-sm">{{ unreadCount }}</span>
+        <span class="indicator-item badge badge-primary badge-sm">{{ unreadCount$ | async }}</span>
         <span class="text-xl leading-none">&#128276;</span>
       </div>
     </a>

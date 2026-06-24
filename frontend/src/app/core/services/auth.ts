@@ -1,12 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, tap } from 'rxjs';
-
-interface AuthResponse {
-  token?: string;
-  accessToken?: string;
-  user?: unknown;
-}
+import { AuthResponse, User } from '../../store/models';
 
 @Injectable({
   providedIn: 'root',
@@ -33,8 +28,8 @@ export class AuthService {
     localStorage.removeItem(this.tokenKey);
   }
 
-  me(): Observable<unknown> {
-    return this.http.get<unknown>(`${this.apiUrl}/me`);
+  me(): Observable<User> {
+    return this.http.get<User>(`${this.apiUrl}/me`);
   }
 
   getToken(): string | null {

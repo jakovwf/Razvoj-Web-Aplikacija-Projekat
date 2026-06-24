@@ -1,8 +1,10 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { Store } from '@ngrx/store';
 import { filter } from 'rxjs';
 import { AuthService } from './core/services/auth';
 import { NavbarComponent } from './shared/components/navbar/navbar';
+import { loadMe } from './store/auth/auth.actions';
 
 @Component({
   selector: 'app-root',
@@ -13,6 +15,7 @@ import { NavbarComponent } from './shared/components/navbar/navbar';
 export class App {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly store = inject(Store);
   private readonly publicPaths = new Set(['/', '/login', '/register']);
   private readonly currentPath = signal(this.router.url.split('?')[0]);
 
@@ -23,6 +26,10 @@ export class App {
   });
 
   constructor() {
+    if (this.authService.getToken()) {
+      this.store.dispatch(loadMe());
+    }
+
     this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
       .subscribe((event) => this.currentPath.set(event.urlAfterRedirects.split('?')[0]));
