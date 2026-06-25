@@ -81,6 +81,38 @@ app-board-card.cdk-drag-placeholder > * {
   visibility: hidden;
 }
 
+app-board-list.cdk-drag {
+  display: block;
+  flex: 0 0 auto;
+}
+
+app-board-list.cdk-drag-preview {
+  box-sizing: border-box;
+  border-radius: 1rem;
+  box-shadow: 0 18px 40px rgb(15 23 42 / 0.26);
+  cursor: grabbing;
+}
+
+app-board-list.cdk-drag-placeholder {
+  width: 18rem;
+  min-height: 12rem;
+  border: 2px dashed hsl(var(--bc) / 0.25);
+  border-radius: 1rem;
+  background: hsl(var(--b2) / 0.45);
+  box-shadow: none;
+  opacity: 1;
+}
+
+app-board-list.cdk-drag-placeholder > * {
+  visibility: hidden;
+}
+
+@media (min-width: 640px) {
+  app-board-list.cdk-drag-placeholder {
+    width: 20rem;
+  }
+}
+
 .cdk-drag-animating {
   transition: transform 180ms cubic-bezier(0.2, 0, 0, 1);
 }
