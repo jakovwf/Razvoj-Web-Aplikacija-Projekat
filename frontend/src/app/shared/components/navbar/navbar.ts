@@ -21,10 +21,17 @@ export class NavbarComponent {
   readonly unreadCount$ = this.store.select(selectUnreadCount);
 
   logout(): void {
+    this.closeSidebar();
     this.store.dispatch(logout());
   }
 
   toggleSidebar(): void {
     this.sidebarToggle.emit();
+  }
+
+  closeSidebar(): void {
+    if (this.isSidebarOpen && window.matchMedia('(max-width: 1023px)').matches) {
+      this.sidebarToggle.emit();
+    }
   }
 }

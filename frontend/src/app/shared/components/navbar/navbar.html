@@ -1,14 +1,10 @@
+@if (isSidebarOpen) {
 <aside
-  class="fixed inset-y-0 left-0 z-40 border-r border-base-300 bg-base-100 shadow-xl transition-all duration-300 lg:static lg:block lg:shadow-none"
-  [class.w-72]="isSidebarOpen"
-  [class.w-0]="!isSidebarOpen"
-  [class.-translate-x-full]="!isSidebarOpen"
-  [class.lg:-translate-x-0]="!isSidebarOpen"
-  [class.overflow-hidden]="!isSidebarOpen"
+  class="fixed inset-0 z-50 min-h-screen border-r border-base-300 bg-base-100 shadow-xl transition-all duration-300 lg:static lg:z-40 lg:block lg:w-72 lg:shadow-none"
 >
-  <nav class="min-h-full w-72 p-4">
+  <nav class="flex min-h-full w-full flex-col p-4 lg:w-72">
     <div class="mb-6 flex items-center justify-between gap-3">
-      <a routerLink="/home" class="block text-xl font-bold tracking-tight text-primary">Trello Klon</a>
+      <a routerLink="/home" class="block text-xl font-bold tracking-tight text-primary" (click)="closeSidebar()">Trello Klon</a>
       <button
         type="button"
         class="btn btn-ghost btn-square btn-sm"
@@ -19,24 +15,22 @@
       </button>
     </div>
 
-    <div class="mb-6">
-      <p class="mb-2 text-xs font-semibold uppercase text-base-content/60">Workspaceovi</p>
-      <ul class="menu rounded-box border border-base-300 bg-base-200/70">
-        <li><a routerLink="/home">Svi workspaceovi</a></li>
-        <li><a routerLink="/w/demo-workspace">Demo workspace</a></li>
+    <div>
+      <p class="mb-2 text-xs font-semibold uppercase text-base-content/60">Navigacija</p>
+      <ul class="menu rounded-box border border-base-300 bg-base-200/70 text-base">
+        <li><a routerLink="/home" (click)="closeSidebar()">Dashboard</a></li>
+        <li><a routerLink="/home" (click)="closeSidebar()">Boardovi</a></li>
+        <li><a routerLink="/profile" (click)="closeSidebar()">Profil</a></li>
+        <li><a routerLink="/notifications" (click)="closeSidebar()">Notifikacije</a></li>
       </ul>
     </div>
 
-    <div>
-      <p class="mb-2 text-xs font-semibold uppercase text-base-content/60">Boardovi</p>
-      <ul class="menu rounded-box border border-base-300 bg-base-200/70">
-        <li><a routerLink="/b/demo-board">Demo board</a></li>
-        <li><a routerLink="/b/demo-board/members">Clanovi boarda</a></li>
-        <li><a routerLink="/b/demo-board/activity">Aktivnost boarda</a></li>
-      </ul>
+    <div class="mt-auto pt-6 lg:hidden">
+      <button type="button" class="btn btn-outline w-full" (click)="logout()">Logout</button>
     </div>
   </nav>
 </aside>
+}
 
 @if (!isSidebarOpen) {
   <button
@@ -78,6 +72,6 @@
         <span class="text-xl leading-none">&#128276;</span>
       </div>
     </a>
-    <button type="button" class="btn btn-outline btn-sm ml-2" (click)="logout()">Logout</button>
+    <button type="button" class="btn btn-outline btn-sm ml-2 hidden sm:inline-flex" (click)="logout()">Logout</button>
   </div>
 </header>
