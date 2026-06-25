@@ -125,6 +125,7 @@
       [card]="selectedCard"
       [comments]="selectedCard ? commentsByCardId[selectedCard.id] ?? [] : []"
       [commentsLoading]="commentsLoading"
+      [commentSaving]="commentSaving"
       [commentsError]="commentsError"
       [currentUser]="currentUser$ | async"
       [loading]="loading$ | async"

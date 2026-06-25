@@ -15,6 +15,7 @@ export class CardDetailComponent implements OnChanges {
   @Input() card: Card | null = null;
   @Input() comments: CardComment[] = [];
   @Input() commentsLoading = false;
+  @Input() commentSaving = false;
   @Input() commentsError: string | null = null;
   @Input() currentUser: User | null = null;
   @Input() loading: boolean | null = false;

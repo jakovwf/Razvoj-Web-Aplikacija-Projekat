@@ -46,14 +46,14 @@
           <textarea
             class="textarea textarea-bordered min-h-24"
             placeholder="Dodaj komentar"
-            [disabled]="commentsLoading"
+            [disabled]="commentsLoading || commentSaving"
             [(ngModel)]="newCommentContent"
             [ngModelOptions]="{ standalone: true }"
           ></textarea>
           <button
             type="button"
           class="btn btn-primary btn-sm justify-self-start"
-          [disabled]="commentsLoading || !newCommentContent.trim()"
+          [disabled]="commentsLoading || commentSaving || !newCommentContent.trim()"
           (click)="emitCreateComment()"
           >
             Dodaj komentar
@@ -79,7 +79,12 @@
                       <button type="button" class="btn btn-ghost btn-xs" (click)="startEditComment(comment)">
                         Izmeni
                       </button>
-                      <button type="button" class="btn btn-error btn-xs" (click)="emitDeleteComment(comment.id)">
+                      <button
+                        type="button"
+                        class="btn btn-error btn-xs"
+                        [disabled]="commentSaving"
+                        (click)="emitDeleteComment(comment.id)"
+                      >
                         Obriši
                       </button>
                     </div>
@@ -97,7 +102,7 @@
                       <button
                         type="button"
                         class="btn btn-primary btn-xs"
-                        [disabled]="commentsLoading || !editCommentContent.trim()"
+                        [disabled]="commentsLoading || commentSaving || !editCommentContent.trim()"
                         (click)="emitUpdateComment(comment.id)"
                       >
                         Sačuvaj

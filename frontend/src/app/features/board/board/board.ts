@@ -5,7 +5,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
-import { catchError, combineLatest, distinctUntilChanged, finalize, forkJoin, map, of, take } from 'rxjs';
+import { combineLatest, distinctUntilChanged, finalize, map, take } from 'rxjs';
 import { CommentService } from '../../../core/services/comment';
 import {
   createCard,
@@ -53,11 +53,12 @@ export class Board {
   selectedCard: Card | null = null;
   commentsByCardId: Partial<Record<string, CardComment[]>> = {};
   commentsLoading = false;
+  commentSaving = false;
   commentsError: string | null = null;
   editingBoardHeader = false;
   hasBoardRoute = false;
   private lastCommentsBoardId: string | null = null;
-  private lastCommentsCardIdsKey = '';
+  private activeCommentsLoadCardId: string | null = null;
   private commentsMutationVersion = 0;
 
   readonly listForm = this.formBuilder.nonNullable.group({
@@ -79,16 +80,17 @@ export class Board {
       .subscribe((boardId) => {
         if (boardId) {
           this.hasBoardRoute = true;
+          if (boardId !== this.lastCommentsBoardId) {
+            this.resetBoardComments();
+            this.lastCommentsBoardId = boardId;
+          }
           this.store.dispatch(loadBoard({ boardId }));
           return;
         }
 
         this.hasBoardRoute = false;
+        this.resetBoardComments();
       });
-
-    this.board$
-      .pipe(takeUntilDestroyed())
-      .subscribe((board) => this.loadCommentsForBoard(board));
   }
 
   createList(boardId: string): void {
@@ -161,10 +163,14 @@ export class Board {
 
   openCard(card: Card): void {
     this.selectedCard = card;
+    this.loadComments(card.id);
   }
 
   closeCard(): void {
     this.selectedCard = null;
+    this.activeCommentsLoadCardId = null;
+    this.commentsLoading = false;
+    this.commentsError = null;
   }
 
   saveCard(event: { cardId: string; title: string; description?: string }): void {
@@ -185,9 +191,15 @@ export class Board {
     }
 
     this.commentsError = null;
+    this.commentSaving = true;
     this.commentService
       .createComment(event.cardId, content)
-      .pipe(take(1))
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.commentSaving = false;
+        }),
+      )
       .subscribe({
         next: (comment) => {
           const currentComments = this.getCommentsForCard(event.cardId);
@@ -199,7 +211,7 @@ export class Board {
           };
         },
         error: () => {
-          this.commentsError = 'Komentar nije sacuvan.';
+          this.setCommentsError(event.cardId, 'Komentar nije sacuvan.');
         },
       });
   }
@@ -212,9 +224,15 @@ export class Board {
     }
 
     this.commentsError = null;
+    this.commentSaving = true;
     this.commentService
       .updateComment(event.commentId, content)
-      .pipe(take(1))
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.commentSaving = false;
+        }),
+      )
       .subscribe({
         next: (updatedComment) => {
           const currentComments = this.getCommentsForCard(event.cardId);
@@ -228,16 +246,22 @@ export class Board {
           };
         },
         error: () => {
-          this.commentsError = 'Komentar nije izmenjen.';
+          this.setCommentsError(event.cardId, 'Komentar nije izmenjen.');
         },
       });
   }
 
   deleteComment(event: { cardId: string; commentId: string }): void {
     this.commentsError = null;
+    this.commentSaving = true;
     this.commentService
       .deleteComment(event.commentId)
-      .pipe(take(1))
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.commentSaving = false;
+        }),
+      )
       .subscribe({
         next: (deletedComment) => {
           const currentComments = this.getCommentsForCard(event.cardId);
@@ -249,7 +273,7 @@ export class Board {
           };
         },
         error: () => {
-          this.commentsError = 'Komentar nije obrisan.';
+          this.setCommentsError(event.cardId, 'Komentar nije obrisan.');
         },
       });
   }
@@ -328,117 +352,72 @@ export class Board {
     );
   }
 
-  private loadCommentsForBoard(board: BoardModel | null): void {
-    if (!board) {
-      this.resetBoardComments();
-      return;
-    }
-
-    const cards = this.getBoardCards(board);
-    const cardIdsKey = cards.map((card) => card.id).sort().join('|');
-
-    if (board.id !== this.lastCommentsBoardId) {
-      this.resetBoardComments();
-      this.lastCommentsBoardId = board.id;
-    }
-
-    if (!cards.length) {
-      this.commentsByCardId = {};
-      this.commentsLoading = false;
-      this.commentsError = null;
-      this.lastCommentsCardIdsKey = '';
-      return;
-    }
-
-    if (cardIdsKey === this.lastCommentsCardIdsKey) {
-      return;
-    }
-
-    this.lastCommentsCardIdsKey = cardIdsKey;
+  private loadComments(cardId: string): void {
+    this.activeCommentsLoadCardId = cardId;
     this.commentsLoading = true;
     this.commentsError = null;
     const loadMutationVersion = this.commentsMutationVersion;
 
-    forkJoin(
-      cards.map((card) =>
-        this.commentService.getComments(card.id).pipe(
-          take(1),
-          catchError(() => {
-            this.commentsError = 'Neki komentari nisu ucitani.';
-            return of([]);
-          }),
-          map((comments) => [card.id, comments] as const),
-        ),
-      ),
-    )
+    this.commentService
+      .getComments(cardId)
       .pipe(
+        take(1),
         finalize(() => {
-          if (board.id === this.lastCommentsBoardId && cardIdsKey === this.lastCommentsCardIdsKey) {
+          if (this.activeCommentsLoadCardId === cardId) {
             this.commentsLoading = false;
           }
         }),
       )
       .subscribe({
-        next: (entries) => {
-          if (board.id !== this.lastCommentsBoardId || cardIdsKey !== this.lastCommentsCardIdsKey) {
-            return;
-          }
-
-          this.commentsByCardId =
+        next: (comments) => {
+          const nextComments =
             loadMutationVersion === this.commentsMutationVersion
-              ? Object.fromEntries(entries)
-              : this.mergeLoadedComments(entries);
+              ? comments
+              : this.mergeLoadedCommentsForCard(cardId, comments);
+
+          this.commentsByCardId = {
+            ...this.commentsByCardId,
+            [cardId]: nextComments,
+          };
         },
         error: () => {
-          if (board.id !== this.lastCommentsBoardId || cardIdsKey !== this.lastCommentsCardIdsKey) {
+          if (this.activeCommentsLoadCardId !== cardId && this.selectedCard?.id !== cardId) {
             return;
           }
 
-          this.commentsByCardId = {};
-          this.lastCommentsCardIdsKey = '';
           this.commentsError = 'Komentari nisu ucitani.';
         },
       });
-  }
-
-  private getBoardCards(board: BoardModel): Card[] {
-    return (board.lists ?? []).flatMap((list) => list.cards ?? []);
   }
 
   private getCommentsForCard(cardId: string): CardComment[] {
     return this.commentsByCardId[cardId] ?? [];
   }
 
+  private setCommentsError(cardId: string, message: string): void {
+    if (!this.selectedCard || this.selectedCard.id === cardId) {
+      this.commentsError = message;
+    }
+  }
+
   private resetBoardComments(): void {
     this.commentsByCardId = {};
     this.commentsLoading = false;
+    this.commentSaving = false;
     this.commentsError = null;
-    this.lastCommentsBoardId = null;
-    this.lastCommentsCardIdsKey = '';
+    this.activeCommentsLoadCardId = null;
     this.commentsMutationVersion++;
   }
 
-  private mergeLoadedComments(entries: readonly (readonly [string, CardComment[]])[]): Partial<Record<string, CardComment[]>> {
-    const loadedCommentsByCardId = Object.fromEntries(entries);
-    const nextCommentsByCardId: Partial<Record<string, CardComment[]>> = {
-      ...this.commentsByCardId,
-    };
+  private mergeLoadedCommentsForCard(cardId: string, loadedComments: CardComment[]): CardComment[] {
+    const currentComments = this.commentsByCardId[cardId] ?? [];
+    const loadedCommentIds = new Set(loadedComments.map((comment) => comment.id));
+    const localOnlyComments = currentComments.filter((comment) => !loadedCommentIds.has(comment.id));
+    const currentCommentsById = new Map(currentComments.map((comment) => [comment.id, comment]));
 
-    for (const [cardId, loadedComments] of entries) {
-      const currentComments = this.commentsByCardId[cardId] ?? [];
-      const loadedCommentIds = new Set(loadedComments.map((comment) => comment.id));
-      const localOnlyComments = currentComments.filter((comment) => !loadedCommentIds.has(comment.id));
-      const currentCommentsById = new Map(currentComments.map((comment) => [comment.id, comment]));
-
-      nextCommentsByCardId[cardId] = [
-        ...loadedComments.map((comment) => currentCommentsById.get(comment.id) ?? comment),
-        ...localOnlyComments,
-      ];
-    }
-
-    return {
-      ...loadedCommentsByCardId,
-      ...nextCommentsByCardId,
-    };
+    return [
+      ...loadedComments.map((comment) => currentCommentsById.get(comment.id) ?? comment),
+      ...localOnlyComments,
+    ];
   }
 }
