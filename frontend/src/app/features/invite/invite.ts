@@ -41,7 +41,10 @@ export class Invite {
 
         if (token) {
           this.loadInvite(token);
+          return;
         }
+
+        this.error = 'Invite link nije ispravan.';
       });
   }
 
@@ -57,6 +60,7 @@ export class Invite {
 
     this.actionLoading = true;
     this.error = null;
+    this.successMessage = null;
 
     this.inviteService
       .acceptInvite(this.token)
@@ -67,6 +71,7 @@ export class Invite {
 
           this.store.dispatch(loadMyBoards());
           this.actionLoading = false;
+          this.successMessage = 'Invite je prihvacen.';
           void this.router.navigate(boardId ? ['/b', boardId] : ['/home']);
         },
         error: (error: unknown) => this.handleInviteActionError(error, 'Invite nije prihvacen.'),
@@ -85,6 +90,7 @@ export class Invite {
 
     this.actionLoading = true;
     this.error = null;
+    this.successMessage = null;
 
     this.inviteService
       .declineInvite(this.token)
@@ -92,6 +98,7 @@ export class Invite {
       .subscribe({
         next: () => {
           this.actionLoading = false;
+          this.successMessage = 'Invite je odbijen.';
           void this.router.navigate(['/home']);
         },
         error: (error: unknown) => this.handleInviteActionError(error, 'Invite nije odbijen.'),
@@ -111,8 +118,8 @@ export class Invite {
           this.invite = invite;
           this.loading = false;
         },
-        error: () => {
-          this.error = 'Invite nije pronadjen ili vise nije aktivan.';
+        error: (error: unknown) => {
+          this.error = this.getErrorMessage(error) ?? 'Invite nije pronadjen ili vise nije aktivan.';
           this.loading = false;
         },
       });
@@ -136,13 +143,23 @@ export class Invite {
 
   private getErrorMessage(error: unknown): string | null {
     if (error instanceof HttpErrorResponse) {
-      const responseError = error.error as { message?: string } | string | undefined;
-
-      if (typeof responseError === 'string') {
-        return responseError;
+      if (error.status === 401) {
+        return 'Morate biti prijavljeni da biste odgovorili na invite.';
       }
 
-      return responseError?.message ?? error.message;
+      if (error.status === 403) {
+        return 'Ovaj invite nije namenjen prijavljenom korisniku.';
+      }
+
+      if (error.status === 404) {
+        return 'Invite link nije pronadjen.';
+      }
+
+      if (error.status === 400) {
+        return 'Invite je istekao ili vise nije pending.';
+      }
+
+      return null;
     }
 
     return null;

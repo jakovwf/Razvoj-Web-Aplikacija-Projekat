@@ -11,11 +11,18 @@
   </header>
 
   @if (loading) {
-    <p class="text-sm text-base-content/70">Ucitavanje clanova...</p>
+    <div class="mb-4 flex items-center gap-2 rounded-xl border border-base-300 bg-base-100 p-4 text-sm text-base-content/70">
+      <span class="loading loading-spinner loading-sm"></span>
+      Ucitavanje clanova i invite-ova...
+    </div>
   }
 
   @if (error) {
     <div class="alert alert-error mb-4 text-sm">{{ error }}</div>
+  }
+
+  @if (successMessage) {
+    <div class="alert alert-success mb-4 text-sm">{{ successMessage }}</div>
   }
 
   <section class="grid gap-6 lg:grid-cols-[1fr_22rem]">
@@ -39,7 +46,9 @@
           }
         </ul>
       } @else if (!loading) {
-        <p class="text-sm text-base-content/70">Nema clanova za prikaz.</p>
+        <div class="rounded-xl border border-base-300 bg-base-100 p-4 text-base-content/70">
+          Nema dodatnih clanova za prikaz.
+        </div>
       }
     </div>
 
@@ -59,7 +68,7 @@
           />
         </label>
 
-        <button type="submit" class="btn btn-primary" [disabled]="inviteForm.invalid || inviteSaving">
+        <button type="submit" class="btn btn-primary" [disabled]="inviteForm.invalid || inviteSaving || loading">
           @if (inviteSaving) {
             <span class="loading loading-spinner loading-sm"></span>
           }
@@ -81,7 +90,15 @@
                     Otvori invite link
                   </a>
                 </div>
-                <button type="button" class="btn btn-error btn-xs" (click)="revokeInvite(invite.id)">
+                <button
+                  type="button"
+                  class="btn btn-error btn-xs"
+                  [disabled]="!!revokeLoadingInviteId"
+                  (click)="revokeInvite(invite.id)"
+                >
+                  @if (revokeLoadingInviteId === invite.id) {
+                    <span class="loading loading-spinner loading-xs"></span>
+                  }
                   Povuci
                 </button>
               </div>
@@ -89,7 +106,9 @@
           }
         </ul>
       } @else {
-        <p class="text-sm text-base-content/70">Nema pending invite-ova.</p>
+        <div class="rounded-xl border border-base-300 bg-base-100 p-4 text-sm text-base-content/70">
+          Nema pending pozivnica.
+        </div>
       }
     </aside>
   </section>

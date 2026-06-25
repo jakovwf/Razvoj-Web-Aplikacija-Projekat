@@ -55,6 +55,7 @@ export class Board {
   commentsLoading = false;
   commentsError: string | null = null;
   editingBoardHeader = false;
+  hasBoardRoute = false;
   private lastCommentsBoardId: string | null = null;
   private lastCommentsCardIdsKey = '';
 
@@ -76,8 +77,12 @@ export class Board {
       )
       .subscribe((boardId) => {
         if (boardId) {
+          this.hasBoardRoute = true;
           this.store.dispatch(loadBoard({ boardId }));
+          return;
         }
+
+        this.hasBoardRoute = false;
       });
 
     this.board$

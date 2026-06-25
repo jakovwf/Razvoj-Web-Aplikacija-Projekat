@@ -7,11 +7,18 @@
       </header>
 
       @if (loading) {
-        <p class="text-sm text-base-content/70">Ucitavanje invite-a...</p>
+        <div class="flex items-center gap-2 rounded-xl border border-base-300 bg-base-100 p-4 text-sm text-base-content/70">
+          <span class="loading loading-spinner loading-sm"></span>
+          Ucitavanje invite-a...
+        </div>
       }
 
       @if (error) {
         <div class="alert alert-error text-sm">{{ error }}</div>
+      }
+
+      @if (successMessage) {
+        <div class="alert alert-success text-sm">{{ successMessage }}</div>
       }
 
       @if (invite) {

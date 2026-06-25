@@ -2,10 +2,13 @@
   <div class="mb-3 flex gap-2">
     <input #listTitle type="text" class="input input-bordered input-sm flex-1" [value]="list.title" />
     <button type="button" class="btn btn-sm" [disabled]="loading" (click)="emitRename(listTitle.value)">
-      Sačuvaj
+      @if (loading) {
+        <span class="loading loading-spinner loading-xs"></span>
+      }
+      Sacuvaj
     </button>
     <button type="button" class="btn btn-error btn-sm" [disabled]="loading" (click)="emitDelete()">
-      Obriši
+      Obrisi
     </button>
   </div>
 
@@ -22,7 +25,9 @@
         <app-board-card cdkDrag [card]="card" (selected)="cardSelected.emit($event)" />
       }
     } @else {
-      <p class="text-sm text-base-content/60">Lista nema kartice.</p>
+      <p class="rounded-lg border border-dashed border-base-300 p-3 text-sm text-base-content/60">
+        Lista nema kartice.
+      </p>
     }
   </div>
 
@@ -40,6 +45,9 @@
       [(ngModel)]="cardDescription"
     />
     <button type="button" class="btn btn-primary btn-sm" [disabled]="loading" (click)="emitCreateCard()">
+      @if (loading) {
+        <span class="loading loading-spinner loading-xs"></span>
+      }
       Dodaj karticu
     </button>
   </div>

@@ -15,13 +15,19 @@
           class="input input-bordered flex-1"
           placeholder="Novi workspace"
         />
-        <button type="submit" class="btn btn-primary" [disabled]="workspaceForm.invalid">
+        <button type="submit" class="btn btn-primary" [disabled]="workspaceForm.invalid || (workspacesLoading$ | async)">
+          @if (workspacesLoading$ | async) {
+            <span class="loading loading-spinner loading-sm"></span>
+          }
           Kreiraj
         </button>
       </form>
 
       @if (workspacesLoading$ | async) {
-        <p class="text-sm text-base-content/70">Učitavanje workspace-ova...</p>
+        <div class="mb-4 flex items-center gap-2 rounded-xl border border-base-300 bg-base-100 p-4 text-sm text-base-content/70">
+          <span class="loading loading-spinner loading-sm"></span>
+          Ucitavanje workspace-ova...
+        </div>
       }
 
       @if (workspacesError$ | async; as error) {
@@ -41,7 +47,10 @@
                       class="input input-bordered input-sm w-full"
                       placeholder="Naziv workspace-a"
                     />
-                    <button type="submit" class="btn btn-primary btn-sm" [disabled]="workspaceEditForm.invalid">
+                    <button type="submit" class="btn btn-primary btn-sm" [disabled]="workspaceEditForm.invalid || (workspacesLoading$ | async)">
+                      @if (workspacesLoading$ | async) {
+                        <span class="loading loading-spinner loading-xs"></span>
+                      }
                       Sacuvaj
                     </button>
                     <button type="button" class="btn btn-ghost btn-sm" (click)="cancelWorkspaceEdit()">
@@ -55,10 +64,10 @@
                       <p class="text-xs text-base-content/60">{{ workspace.id }}</p>
                     </div>
                     <div class="flex shrink-0 gap-2">
-                      <button type="button" class="btn btn-outline btn-xs" (click)="startWorkspaceEdit(workspace)">
+                      <button type="button" class="btn btn-outline btn-xs" [disabled]="workspacesLoading$ | async" (click)="startWorkspaceEdit(workspace)">
                         Izmeni
                       </button>
-                      <button type="button" class="btn btn-error btn-xs" (click)="deleteWorkspace(workspace.id)">
+                      <button type="button" class="btn btn-error btn-xs" [disabled]="workspacesLoading$ | async" (click)="deleteWorkspace(workspace.id)">
                         Obrisi
                       </button>
                     </div>
@@ -67,8 +76,10 @@
               </li>
             }
           </ul>
-        } @else {
-          <p class="text-sm text-base-content/70">Nema workspace-ova.</p>
+        } @else if (!(workspacesLoading$ | async)) {
+          <div class="rounded-xl border border-base-300 bg-base-100 p-4 text-base-content/70">
+            Nema workspace-ova. Kreiraj prvi workspace da bi mogao da dodas board.
+          </div>
         }
       }
     </div>
@@ -100,13 +111,19 @@
           placeholder="Opis, opciono"
         />
 
-        <button type="submit" class="btn btn-primary" [disabled]="boardForm.invalid">
+        <button type="submit" class="btn btn-primary" [disabled]="boardForm.invalid || (boardsLoading$ | async)">
+          @if (boardsLoading$ | async) {
+            <span class="loading loading-spinner loading-sm"></span>
+          }
           Kreiraj board
         </button>
       </form>
 
       @if (boardsLoading$ | async) {
-        <p class="text-sm text-base-content/70">Učitavanje boardova...</p>
+        <div class="mb-4 flex items-center gap-2 rounded-xl border border-base-300 bg-base-100 p-4 text-sm text-base-content/70">
+          <span class="loading loading-spinner loading-sm"></span>
+          Ucitavanje boardova...
+        </div>
       }
 
       @if (boardsError$ | async; as error) {
@@ -133,7 +150,10 @@
                       placeholder="Opis, opciono"
                     />
                     <div class="flex gap-2">
-                      <button type="submit" class="btn btn-primary btn-sm" [disabled]="boardEditForm.invalid">
+                      <button type="submit" class="btn btn-primary btn-sm" [disabled]="boardEditForm.invalid || (boardsLoading$ | async)">
+                        @if (boardsLoading$ | async) {
+                          <span class="loading loading-spinner loading-xs"></span>
+                        }
                         Sacuvaj
                       </button>
                       <button type="button" class="btn btn-ghost btn-sm" (click)="cancelBoardEdit()">
@@ -150,10 +170,10 @@
                     <a [routerLink]="['/b', board.id]" class="btn btn-primary btn-sm">
                       Otvori
                     </a>
-                    <button type="button" class="btn btn-outline btn-sm" (click)="startBoardEdit(board)">
+                    <button type="button" class="btn btn-outline btn-sm" [disabled]="boardsLoading$ | async" (click)="startBoardEdit(board)">
                       Izmeni
                     </button>
-                    <button type="button" class="btn btn-error btn-sm" (click)="deleteBoard(board.id)">
+                    <button type="button" class="btn btn-error btn-sm" [disabled]="boardsLoading$ | async" (click)="deleteBoard(board.id)">
                       Obrisi
                     </button>
                   </div>
@@ -161,8 +181,10 @@
               </article>
             }
           </div>
-        } @else {
-          <p class="text-sm text-base-content/70">Nema boardova.</p>
+        } @else if (!(boardsLoading$ | async)) {
+          <div class="rounded-xl border border-base-300 bg-base-100 p-4 text-base-content/70">
+            Nema boardova. Izaberi workspace i kreiraj prvi board.
+          </div>
         }
       }
     </div>

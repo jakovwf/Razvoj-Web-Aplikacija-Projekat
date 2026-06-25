@@ -1,4 +1,5 @@
 import { Component, inject } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -23,7 +24,9 @@ export class BoardMembers {
   invites: BoardInvite[] = [];
   loading = false;
   inviteSaving = false;
+  revokeLoadingInviteId: string | null = null;
   error: string | null = null;
+  successMessage: string | null = null;
 
   readonly inviteForm = this.formBuilder.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
@@ -41,7 +44,10 @@ export class BoardMembers {
 
         if (boardId) {
           this.loadBoardMembers(boardId);
+          return;
         }
+
+        this.error = 'Board nije pronadjen.';
       });
   }
 
@@ -60,6 +66,7 @@ export class BoardMembers {
 
     this.inviteSaving = true;
     this.error = null;
+    this.successMessage = null;
 
     this.boardService
       .createBoardInvite(this.boardId, { inviteeEmail })
@@ -69,9 +76,10 @@ export class BoardMembers {
           this.invites = [invite, ...this.invites];
           this.inviteForm.reset();
           this.inviteSaving = false;
+          this.successMessage = 'Invite je poslat i dodat u pending listu.';
         },
-        error: () => {
-          this.error = 'Invite nije poslat.';
+        error: (error: unknown) => {
+          this.error = this.getErrorMessage(error, 'Invite nije poslat.');
           this.inviteSaving = false;
         },
       });
@@ -83,6 +91,8 @@ export class BoardMembers {
     }
 
     this.error = null;
+    this.successMessage = null;
+    this.revokeLoadingInviteId = inviteId;
 
     this.boardService
       .deleteBoardInvite(this.boardId, inviteId)
@@ -90,9 +100,12 @@ export class BoardMembers {
       .subscribe({
         next: () => {
           this.invites = this.invites.filter((invite) => invite.id !== inviteId);
+          this.revokeLoadingInviteId = null;
+          this.successMessage = 'Invite je povucen.';
         },
-        error: () => {
-          this.error = 'Invite nije povucen.';
+        error: (error: unknown) => {
+          this.error = this.getErrorMessage(error, 'Invite nije povucen.');
+          this.revokeLoadingInviteId = null;
         },
       });
   }
@@ -100,6 +113,7 @@ export class BoardMembers {
   private loadBoardMembers(boardId: string): void {
     this.loading = true;
     this.error = null;
+    this.successMessage = null;
 
     forkJoin({
       board: this.boardService.getBoard(boardId),
@@ -114,10 +128,30 @@ export class BoardMembers {
           this.invites = invites.filter((invite) => invite.status === 'PENDING');
           this.loading = false;
         },
-        error: () => {
-          this.error = 'Clanovi boarda nisu ucitani.';
+        error: (error: unknown) => {
+          this.error = this.getErrorMessage(error, 'Clanovi boarda nisu ucitani.');
           this.loading = false;
         },
       });
+  }
+
+  private getErrorMessage(error: unknown, fallbackMessage: string): string {
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 401) {
+        return 'Morate biti prijavljeni da biste videli clanove boarda.';
+      }
+
+      if (error.status === 403) {
+        return 'Nemate dozvolu za ovu akciju na boardu.';
+      }
+
+      if (error.status === 404) {
+        return 'Board ili invite nisu pronadjeni.';
+      }
+
+      return fallbackMessage;
+    }
+
+    return fallbackMessage;
   }
 }
