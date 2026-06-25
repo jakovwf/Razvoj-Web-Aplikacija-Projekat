@@ -1,7 +1,7 @@
 import {
   ApplicationConfig,
   provideBrowserGlobalErrorListeners,
-  provideZonelessChangeDetection,
+  provideZonelessChangeDetection, isDevMode,
 } from '@angular/core';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
@@ -19,6 +19,7 @@ import { NotificationsEffects } from './store/notifications/notifications.effect
 import { notificationsReducer } from './store/notifications/notifications.reducer';
 import { WorkspacesEffects } from './store/workspaces/workspaces.effects';
 import { workspacesReducer } from './store/workspaces/workspaces.reducer';
+import { provideServiceWorker } from '@angular/service-worker';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -33,6 +34,9 @@ export const appConfig: ApplicationConfig = {
       workspaces: workspacesReducer,
     }),
     provideEffects([AuthEffects, BoardsEffects, NotificationsEffects, WorkspacesEffects]),
-    provideStoreDevtools({ maxAge: 25, logOnly: false }),
+    provideStoreDevtools({ maxAge: 25, logOnly: false }), provideServiceWorker('ngsw-worker.js', {
+            enabled: !isDevMode(),
+            registrationStrategy: 'registerWhenStable:30000'
+          }),
   ]
 };
