@@ -1,5 +1,5 @@
-<div class="tf-panel w-[18rem] shrink-0 p-3 sm:w-80">
-  <div class="mb-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+<div class="tf-panel flex max-h-[calc(100dvh-13rem)] w-[85vw] max-w-sm shrink-0 flex-col p-3 sm:w-80 md:max-h-[calc(100dvh-12rem)]">
+  <div class="mb-3 shrink-0 grid gap-2 sm:grid-cols-[1fr_auto]">
     <div class="min-w-0">
       <input
         type="text"
@@ -24,7 +24,7 @@
   </div>
 
   <div
-    class="mb-4 min-h-16 space-y-2 rounded-lg bg-base-200/60 p-2"
+    class="mb-4 min-h-24 flex-1 space-y-2 overflow-y-auto overscroll-contain rounded-lg bg-base-200/60 p-2"
     cdkDropList
     [id]="list.id"
     [cdkDropListData]="list.cards ?? emptyCards"
@@ -42,7 +42,7 @@
     }
   </div>
 
-  <div class="grid gap-2 border-t border-base-300 pt-3">
+  <div class="grid shrink-0 gap-2 border-t border-base-300 pt-3">
     <input
       type="text"
       class="input input-bordered input-sm"

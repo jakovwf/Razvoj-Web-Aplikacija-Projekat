@@ -234,7 +234,7 @@ app-board-list.cdk-drag-preview {
 }
 
 app-board-list.cdk-drag-placeholder {
-  width: 18rem;
+  width: min(85vw, 24rem);
   min-height: 12rem;
   border: 2px dashed hsl(var(--bc) / 0.25);
   border-radius: 1rem;
