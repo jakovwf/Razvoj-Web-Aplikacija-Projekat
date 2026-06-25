@@ -72,7 +72,11 @@ export class ListsController {
     return this.listsService.remove(id, request.user.userId);
   }
 
-  @Roles(BoardMemberRole.OWNER, BoardMemberRole.ADMIN)
+  @Roles(
+    BoardMemberRole.OWNER,
+    BoardMemberRole.ADMIN,
+    BoardMemberRole.MEMBER,
+  )
   @UseGuards(BoardRoleGuard)
   @Patch('boards/:boardId/lists/reorder')
   reorder(
