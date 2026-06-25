@@ -86,21 +86,27 @@
                 <div class="min-w-0">
                   <p class="truncate font-medium">{{ invite.invitedEmail }}</p>
                   <p class="text-xs text-base-content/60">Role: {{ invite.role }}</p>
+                  <p class="text-xs text-base-content/60">Status: {{ invite.status }}</p>
                   <a [routerLink]="['/invite', invite.token]" class="link link-primary text-xs">
                     Otvori invite link
                   </a>
                 </div>
-                <button
-                  type="button"
-                  class="btn btn-error btn-xs"
-                  [disabled]="!!revokeLoadingInviteId"
-                  (click)="revokeInvite(invite.id)"
-                >
-                  @if (revokeLoadingInviteId === invite.id) {
-                    <span class="loading loading-spinner loading-xs"></span>
-                  }
-                  Povuci
-                </button>
+                <div class="flex shrink-0 flex-col gap-2">
+                  <button type="button" class="btn btn-outline btn-xs" (click)="copyInviteLink(invite)">
+                    Copy invite link
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-error btn-xs"
+                    [disabled]="!!revokeLoadingInviteId"
+                    (click)="revokeInvite(invite.id)"
+                  >
+                    @if (revokeLoadingInviteId === invite.id) {
+                      <span class="loading loading-spinner loading-xs"></span>
+                    }
+                    Povuci
+                  </button>
+                </div>
               </div>
             </li>
           }

@@ -110,6 +110,24 @@ export class BoardMembers {
       });
   }
 
+  async copyInviteLink(invite: BoardInvite): Promise<void> {
+    this.error = null;
+    this.successMessage = null;
+
+    const inviteLink = this.getInviteLink(invite);
+
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      this.successMessage = 'Invite link kopiran.';
+    } catch {
+      this.error = 'Invite link nije kopiran. Pokusaj ponovo.';
+    }
+  }
+
+  getInviteLink(invite: BoardInvite): string {
+    return `${window.location.origin}/invite/${invite.token}`;
+  }
+
   private loadBoardMembers(boardId: string): void {
     this.loading = true;
     this.error = null;
