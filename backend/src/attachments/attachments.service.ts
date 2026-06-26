@@ -17,6 +17,8 @@ interface UploadedAttachmentFile {
   buffer: Buffer;
 }
 
+type CloudinaryResourceType = 'image' | 'raw';
+
 const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
   'image/jpeg',
@@ -24,6 +26,7 @@ const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
   'image/webp',
   'application/pdf',
 ]);
+const ALLOWED_ATTACHMENT_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'pdf']);
 
 @Injectable()
 export class AttachmentsService {
@@ -38,7 +41,7 @@ export class AttachmentsService {
       throw new BadRequestException('File is required');
     }
 
-    if (!ALLOWED_ATTACHMENT_MIME_TYPES.has(file.mimetype)) {
+    if (!this.isAllowedAttachment(file)) {
       throw new BadRequestException('File type is not allowed');
     }
 
@@ -46,9 +49,15 @@ export class AttachmentsService {
       throw new BadRequestException('File is too large');
     }
 
-    const uploadedFile = await this.uploadToCloudinary(file);
+    const resourceType = this.getCloudinaryResourceType(file);
+    const uploadedFile = await this.uploadToCloudinary(file, resourceType);
 
-    return this.prisma.attachment.create({
+    if (resourceType === 'raw' && !uploadedFile.secure_url.includes('/raw/upload/')) {
+      await this.deleteFromCloudinary(uploadedFile.public_id);
+      throw new BadRequestException('PDF upload did not use Cloudinary raw resource type');
+    }
+
+    const attachment = await this.prisma.attachment.create({
       data: {
         filename: file.originalname,
         url: uploadedFile.secure_url,
@@ -58,14 +67,24 @@ export class AttachmentsService {
       },
       include: this.attachmentInclude,
     });
+
+    return this.withAttachmentMetadata(attachment, {
+      mimeType: file.mimetype,
+      resourceType: uploadedFile.resource_type,
+      format: uploadedFile.format,
+    });
   }
 
-  findAll(cardId: string) {
-    return this.prisma.attachment.findMany({
+  async findAll(cardId: string) {
+    const attachments = await this.prisma.attachment.findMany({
       where: { cardId },
       include: this.attachmentInclude,
       orderBy: { createdAt: 'asc' },
     });
+
+    return attachments.map((attachment) =>
+      this.withAttachmentMetadata(attachment),
+    );
   }
 
   async remove(id: string, currentUserId: string) {
@@ -113,18 +132,25 @@ export class AttachmentsService {
       await this.deleteFromCloudinary(attachment.publicId);
     }
 
-    return this.prisma.attachment.delete({
+    const deletedAttachment = await this.prisma.attachment.delete({
       where: { id },
       include: this.attachmentInclude,
     });
+
+    return this.withAttachmentMetadata(deletedAttachment);
   }
 
-  private uploadToCloudinary(file: UploadedAttachmentFile) {
+  private uploadToCloudinary(
+    file: UploadedAttachmentFile,
+    resourceType: CloudinaryResourceType,
+  ) {
     return new Promise<UploadApiResponse>((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
-          resource_type: 'auto',
+          resource_type: resourceType,
           folder: 'taskflow/attachments',
+          use_filename: true,
+          unique_filename: true,
         },
         (error, result) => {
           if (error || !result) {
@@ -140,6 +166,37 @@ export class AttachmentsService {
     });
   }
 
+  private getCloudinaryResourceType(
+    file: UploadedAttachmentFile,
+  ): CloudinaryResourceType {
+    if (this.isPdfAttachment(file)) {
+      return 'raw';
+    }
+
+    return 'image';
+  }
+
+  private isAllowedAttachment(file: UploadedAttachmentFile): boolean {
+    if (ALLOWED_ATTACHMENT_MIME_TYPES.has(file.mimetype)) {
+      return true;
+    }
+
+    return ALLOWED_ATTACHMENT_EXTENSIONS.has(this.getFileExtension(file));
+  }
+
+  private isPdfAttachment(file: UploadedAttachmentFile): boolean {
+    return file.mimetype === 'application/pdf' || this.getFileExtension(file) === 'pdf';
+  }
+
+  private getFileExtension(file: UploadedAttachmentFile): string {
+    const normalizedFilename = file.originalname.toLowerCase();
+    const extension = normalizedFilename.includes('.')
+      ? normalizedFilename.split('.').pop()
+      : '';
+
+    return extension ?? '';
+  }
+
   private async deleteFromCloudinary(publicId: string): Promise<void> {
     const resourceTypes = ['image', 'raw'] as const;
 
@@ -148,6 +205,66 @@ export class AttachmentsService {
         cloudinary.uploader.destroy(publicId, { resource_type }),
       ),
     );
+  }
+
+  private withAttachmentMetadata<T extends { filename: string; url: string }>(
+    attachment: T,
+    metadata?: {
+      mimeType?: string;
+      resourceType?: string;
+      format?: string;
+    },
+  ) {
+    return {
+      ...attachment,
+      mimeType: metadata?.mimeType ?? this.inferMimeType(attachment.filename),
+      resourceType:
+        metadata?.resourceType ?? this.inferResourceType(attachment.url),
+      format: metadata?.format ?? this.inferFormat(attachment.filename),
+    };
+  }
+
+  private inferMimeType(filename: string): string | null {
+    const extension = this.inferFormat(filename);
+
+    if (extension === 'pdf') {
+      return 'application/pdf';
+    }
+
+    if (extension === 'jpg' || extension === 'jpeg') {
+      return 'image/jpeg';
+    }
+
+    if (extension === 'png') {
+      return 'image/png';
+    }
+
+    if (extension === 'webp') {
+      return 'image/webp';
+    }
+
+    return null;
+  }
+
+  private inferResourceType(url: string): string | null {
+    if (url.includes('/raw/upload/')) {
+      return 'raw';
+    }
+
+    if (url.includes('/image/upload/')) {
+      return 'image';
+    }
+
+    return null;
+  }
+
+  private inferFormat(filename: string): string | null {
+    const normalizedFilename = filename.toLowerCase();
+    const extension = normalizedFilename.includes('.')
+      ? normalizedFilename.split('.').pop()
+      : null;
+
+    return extension ?? null;
   }
 
   private readonly safeUserSelect = {
