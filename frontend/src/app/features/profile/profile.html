@@ -16,6 +16,45 @@
           <div class="alert alert-success text-sm">{{ successMessage }}</div>
         }
 
+        <div class="flex flex-col items-center gap-2">
+          <button
+            type="button"
+            class="avatar relative cursor-pointer rounded-full transition hover:scale-105 hover:opacity-90 focus:outline-none focus:ring-4 focus:ring-primary/25"
+            aria-label="Promeni profilnu sliku"
+            [disabled]="uploadLoading"
+            (click)="fileInput.click()"
+          >
+            <div class="h-28 w-28 rounded-full ring ring-primary ring-offset-2 ring-offset-base-100">
+              @if (user.avatarUrl) {
+                <img [src]="user.avatarUrl" [alt]="'Avatar korisnika ' + user.displayName" />
+              } @else {
+                <div class="flex h-full w-full items-center justify-center bg-primary text-3xl font-black text-primary-content">
+                  {{ user.displayName.charAt(0).toUpperCase() }}
+                </div>
+              }
+            </div>
+
+            @if (uploadLoading) {
+              <span class="absolute inset-0 flex items-center justify-center rounded-full bg-base-100/75">
+                <span class="loading loading-spinner loading-lg text-primary"></span>
+              </span>
+            }
+          </button>
+
+          <input
+            #fileInput
+            type="file"
+            accept="image/*"
+            class="hidden"
+            (change)="onFileSelected($event)"
+          />
+          <p class="text-xs text-base-content/60">Klikni na avatar za novu sliku (maks. 5MB).</p>
+
+          @if (uploadError) {
+            <div class="alert alert-error py-2 text-sm" role="alert">{{ uploadError }}</div>
+          }
+        </div>
+
         <form class="grid gap-4" [formGroup]="profileForm" (ngSubmit)="saveProfile()">
           <label class="form-control w-full">
             <div class="label">

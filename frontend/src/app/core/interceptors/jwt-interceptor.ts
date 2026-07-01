@@ -6,6 +6,10 @@ import { AuthService } from '../services/auth';
 import { SocketService } from '../services/socket.service';
 
 export const jwtInterceptor: HttpInterceptorFn = (request, next) => {
+  if (request.url.includes('cloudinary.com')) {
+    return next(request);
+  }
+
   const authService = inject(AuthService);
   const socketService = inject(SocketService);
   const router = inject(Router);

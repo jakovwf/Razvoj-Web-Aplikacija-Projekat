@@ -4,7 +4,8 @@ import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
-import { finalize, take } from 'rxjs';
+import { EMPTY, catchError, finalize, switchMap, take } from 'rxjs';
+import { CloudinaryService } from '../../core/services/cloudinary.service';
 import { UserService } from '../../core/services/user';
 import { loadMe } from '../../store/auth/auth.actions';
 import { selectCurrentUser } from '../../store/auth/auth.selectors';
@@ -18,6 +19,7 @@ import { User } from '../../store/models';
 })
 export class Profile {
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly cloudinaryService = inject(CloudinaryService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly store = inject(Store);
   private readonly userService = inject(UserService);
@@ -26,6 +28,8 @@ export class Profile {
   loading = false;
   error: string | null = null;
   successMessage: string | null = null;
+  uploadLoading = false;
+  uploadError: string | null = null;
   private currentUser: User | null = null;
 
   readonly profileForm = this.formBuilder.nonNullable.group({
@@ -96,6 +100,58 @@ export class Profile {
           this.error = this.getErrorMessage(error);
           this.cdr.markForCheck();
         },
+      });
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    input.value = '';
+
+    if (!file.type.startsWith('image/')) {
+      this.uploadError = 'Dozvoljene su samo slike.';
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      this.uploadError = 'Maksimalna veličina je 5MB.';
+      return;
+    }
+
+    if (!this.currentUser) {
+      this.uploadError = 'Korisnik nije učitan. Pokušaj ponovo.';
+      return;
+    }
+
+    const userId = this.currentUser.id;
+    this.uploadLoading = true;
+    this.uploadError = null;
+    this.cdr.markForCheck();
+
+    this.cloudinaryService
+      .uploadImage(file)
+      .pipe(
+        switchMap((avatarUrl) => this.userService.updateUser(userId, { avatarUrl })),
+        catchError(() => {
+          this.uploadError = 'Upload nije uspeo. Pokušaj ponovo.';
+          this.cdr.markForCheck();
+          return EMPTY;
+        }),
+        finalize(() => {
+          this.uploadLoading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe((updatedUser) => {
+        this.currentUser = updatedUser;
+        this.profileForm.controls.avatarUrl.setValue(updatedUser.avatarUrl ?? '');
+        this.store.dispatch(loadMe());
+        this.cdr.markForCheck();
       });
   }
 
