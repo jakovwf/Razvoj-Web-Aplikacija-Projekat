@@ -407,6 +407,24 @@ export class CardDetailComponent implements OnChanges {
     return attachment.url;
   }
 
+  openAttachment(attachment: Attachment): void {
+    if (attachment.mimeType?.startsWith('image/')) {
+      window.open(attachment.url, '_blank');
+      return;
+    }
+
+    if (attachment.mimeType === 'application/pdf') {
+      const viewerUrl = attachment.url.replace(
+        '/raw/upload/',
+        '/image/upload/fl_attachment:false/',
+      );
+      window.open(viewerUrl, '_blank');
+      return;
+    }
+
+    window.open(attachment.url, '_blank');
+  }
+
   availableBoardMembers(): BoardMember[] {
     const assignedUserIds = new Set(this.assignedMembers().map((member) => member.userId));
 

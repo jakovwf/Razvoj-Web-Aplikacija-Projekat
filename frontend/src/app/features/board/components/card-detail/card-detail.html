@@ -313,14 +313,13 @@
                 </div>
 
                 <div class="flex shrink-0 gap-2">
-                  <a
+                  <button
+                    type="button"
                     class="btn btn-outline btn-sm"
-                    [href]="attachment.url"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    (click)="openAttachment(attachment)"
                   >
                     Otvori
-                  </a>
+                  </button>
                   <a
                     class="btn btn-outline btn-sm"
                     [href]="getAttachmentDownloadUrl(attachment)"
