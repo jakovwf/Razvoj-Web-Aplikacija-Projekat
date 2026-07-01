@@ -1,7 +1,7 @@
 import { AsyncPipe } from '@angular/common';
 import { Component, HostListener, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { Store } from '@ngrx/store';
 import {
   createBoard,
@@ -29,12 +29,13 @@ import {
 
 @Component({
   selector: 'app-home',
-  imports: [AsyncPipe, ReactiveFormsModule, RouterLink],
+  imports: [AsyncPipe, ReactiveFormsModule],
   templateUrl: './home.html',
   styleUrl: './home.scss',
 })
 export class Home {
   private readonly formBuilder = inject(FormBuilder);
+  private readonly router = inject(Router);
   private readonly store = inject(Store);
 
   readonly workspaces$ = this.store.select(selectAllWorkspaces);
@@ -47,6 +48,7 @@ export class Home {
   editingBoardId: string | null = null;
   creatingBoardWorkspaceId: string | null = null;
   activeDropdownId: string | null = null;
+  showNewWorkspaceForm = false;
 
   readonly workspaceForm = this.formBuilder.nonNullable.group({
     name: ['', [Validators.required, Validators.minLength(1)]],
@@ -86,9 +88,16 @@ export class Home {
 
     this.store.dispatch(createWorkspace({ name }));
     this.workspaceForm.reset();
+    this.showNewWorkspaceForm = false;
+  }
+
+  toggleNewWorkspaceForm(): void {
+    this.showNewWorkspaceForm = !this.showNewWorkspaceForm;
+    this.workspaceForm.reset();
   }
 
   startWorkspaceEdit(workspace: Workspace): void {
+    this.closeDropdown();
     this.editingWorkspaceId = workspace.id;
     this.workspaceEditForm.setValue({ name: workspace.name });
   }
@@ -116,6 +125,7 @@ export class Home {
   }
 
   deleteWorkspace(workspaceId: string): void {
+    this.closeDropdown();
     if (!confirm('Da li ste sigurni da zelite da obrisete workspace?')) {
       return;
     }
@@ -158,14 +168,18 @@ export class Home {
     this.creatingBoardWorkspaceId = null;
   }
 
-  toggleDropdown(boardId: string, event: MouseEvent): void {
+  toggleDropdown(dropdownId: string, event: MouseEvent): void {
     event.stopPropagation();
-    this.activeDropdownId = this.activeDropdownId === boardId ? null : boardId;
+    this.activeDropdownId = this.activeDropdownId === dropdownId ? null : dropdownId;
   }
 
   @HostListener('document:click')
   closeDropdown(): void {
     this.activeDropdownId = null;
+  }
+
+  openBoard(boardId: string): void {
+    void this.router.navigate(['/b', boardId]);
   }
 
   startBoardEdit(board: Board): void {

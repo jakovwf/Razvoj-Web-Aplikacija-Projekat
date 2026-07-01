@@ -3,8 +3,7 @@
     <div class="flex items-start gap-3">
       <img src="logo/taskflow-icon.png" alt="TaskFlow" class="h-11 w-11 shrink-0 object-contain" />
       <div class="min-w-0">
-        <p class="tf-kicker">TaskFlow dashboard</p>
-        <h1 class="mt-1 text-3xl font-black tracking-tight">Home</h1>
+        <h1 class="text-3xl font-black tracking-tight">Home</h1>
       </div>
     </div>
     <p class="mt-2 max-w-2xl text-sm text-base-content/70 sm:text-base">
@@ -14,20 +13,26 @@
 
   <section class="card tf-panel mb-6">
     <div class="card-body gap-4 p-4 sm:p-5">
-      <div>
-        <h2 class="text-xl font-semibold">Novi workspace</h2>
-        <p class="mt-1 text-sm text-base-content/60">Organizuj boardove po timovima ili projektima.</p>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-semibold">Workspaceovi</h2>
+          <p class="mt-1 text-sm text-base-content/60">Organizuj boardove po timovima ili projektima.</p>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" (click)="toggleNewWorkspaceForm()">+ Novi workspace</button>
       </div>
 
-      <form class="grid gap-2 sm:grid-cols-[1fr_auto]" [formGroup]="workspaceForm" (ngSubmit)="createWorkspace()">
-        <input type="text" formControlName="name" class="input input-bordered w-full" placeholder="Naziv workspace-a" />
-        <button type="submit" class="btn btn-primary" [disabled]="workspaceForm.invalid || (workspacesLoading$ | async)">
-          @if (workspacesLoading$ | async) {
-            <span class="loading loading-spinner loading-sm"></span>
-          }
-          Kreiraj
-        </button>
-      </form>
+      @if (showNewWorkspaceForm) {
+        <form class="grid gap-2 rounded-box bg-base-200 p-4 sm:grid-cols-[1fr_auto_auto]" [formGroup]="workspaceForm" (ngSubmit)="createWorkspace()">
+          <input type="text" formControlName="name" class="input input-bordered w-full" placeholder="Naziv workspace-a" />
+          <button type="submit" class="btn btn-primary" [disabled]="workspaceForm.invalid || (workspacesLoading$ | async)">
+            @if (workspacesLoading$ | async) {
+              <span class="loading loading-spinner loading-sm"></span>
+            }
+            Kreiraj
+          </button>
+          <button type="button" class="btn btn-ghost" (click)="toggleNewWorkspaceForm()">Odustani</button>
+        </form>
+      }
     </div>
   </section>
 
@@ -68,10 +73,19 @@
                       <button type="button" class="btn btn-ghost btn-sm" (click)="cancelWorkspaceEdit()">Odustani</button>
                     </form>
                   } @else {
-                    <h2 class="min-w-0 truncate text-lg font-bold">{{ workspace.name }}</h2>
-                    <div class="flex flex-wrap items-center gap-2">
-                      <button type="button" class="btn btn-ghost btn-xs" [disabled]="workspacesLoading$ | async" (click)="startWorkspaceEdit(workspace)">Izmeni</button>
-                      <button type="button" class="btn btn-ghost btn-xs text-error" [disabled]="workspacesLoading$ | async" (click)="deleteWorkspace(workspace.id)">Obrisi</button>
+                    <div class="flex min-w-0 items-center gap-1">
+                      <h2 class="truncate text-lg font-bold">{{ workspace.name }}</h2>
+                      <div class="relative">
+                        <button type="button" class="btn btn-ghost btn-sm" aria-label="Akcije za workspace" (click)="toggleDropdown('ws-' + workspace.id, $event)">...</button>
+                        @if (activeDropdownId === 'ws-' + workspace.id) {
+                          <div class="absolute left-0 top-8 z-50 w-32 rounded-box border border-base-200 bg-base-100 p-1 shadow-lg" (click)="$event.stopPropagation()">
+                            <button type="button" class="btn btn-ghost btn-sm w-full text-left" [disabled]="workspacesLoading$ | async" (click)="startWorkspaceEdit(workspace)">Izmeni</button>
+                            <button type="button" class="btn btn-ghost btn-sm w-full text-left text-error" [disabled]="workspacesLoading$ | async" (click)="deleteWorkspace(workspace.id)">Obrisi</button>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
                       <button type="button" class="btn btn-primary btn-sm" (click)="toggleBoardCreate(workspace.id)">
                         <span aria-hidden="true">+</span>
                         Novi board
@@ -93,9 +107,9 @@
                   @if (workspaceBoards.length > 0) {
                     <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
                       @for (board of workspaceBoards; track board.id) {
-                        <article class="tf-card min-w-0 p-4">
+                        <article class="tf-card min-w-0 cursor-pointer p-4" role="link" tabindex="0" (click)="openBoard(board.id)" (keydown.enter)="openBoard(board.id)">
                           @if (editingBoardId === board.id) {
-                            <form class="grid gap-2" [formGroup]="boardEditForm" (ngSubmit)="saveBoardEdit()">
+                            <form class="grid gap-2" [formGroup]="boardEditForm" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()" (ngSubmit)="saveBoardEdit()">
                               <input type="text" formControlName="title" class="input input-bordered input-sm w-full" placeholder="Naziv boarda" />
                               <input type="text" formControlName="description" class="input input-bordered input-sm w-full" placeholder="Opis, opciono" />
                               <div class="flex flex-wrap gap-2">
@@ -108,11 +122,10 @@
                             @if (board.description) {
                               <p class="mt-1 line-clamp-2 text-sm text-base-content/70">{{ board.description }}</p>
                             }
-                            <div class="mt-4 flex items-center justify-between gap-2">
-                              <a [routerLink]="['/b', board.id]" class="btn btn-primary btn-sm">Otvori</a>
-                              <div class="relative">
-                                <button type="button" class="btn btn-ghost btn-sm" aria-label="Akcije za board" (click)="toggleDropdown(board.id, $event)">...</button>
-                                @if (activeDropdownId === board.id) {
+                            <div class="mt-4 flex items-center justify-end gap-2">
+                              <div class="relative" (click)="$event.stopPropagation()">
+                                <button type="button" class="btn btn-ghost btn-sm" aria-label="Akcije za board" (click)="toggleDropdown('board-' + board.id, $event)">...</button>
+                                @if (activeDropdownId === 'board-' + board.id) {
                                   <div class="absolute bottom-8 right-0 z-50 w-32 rounded-box border border-base-200 bg-base-100 p-1 shadow-lg">
                                     <button type="button" class="btn btn-ghost btn-sm w-full text-left" [disabled]="boardsLoading$ | async" (click)="startBoardEdit(board)">Izmeni</button>
                                     <button type="button" class="btn btn-ghost btn-sm w-full text-left text-error" [disabled]="boardsLoading$ | async" (click)="deleteBoard(board.id)">Obrisi</button>
