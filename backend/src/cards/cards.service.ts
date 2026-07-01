@@ -83,7 +83,9 @@ export class CardsService {
       payload: { cardTitle: card.title },
     });
 
-    this.appGateway.emitToBoardExcept(card.list.boardId, 'card:updated', { card }, socketId);
+    if (updateCardDto.description !== undefined) {
+      this.appGateway.emitToBoardExcept(card.list.boardId, 'card:updated', { card }, socketId);
+    }
 
     return card;
   }

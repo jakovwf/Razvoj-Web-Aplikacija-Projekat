@@ -145,6 +145,20 @@ export class Board {
         }
       });
 
+    this.boardSocketService.cardUpdated$
+      .pipe(takeUntilDestroyed())
+      .subscribe(({ card }) => {
+        if (this.selectedCard?.id !== card.id) {
+          return;
+        }
+
+        this.selectedCard = {
+          ...this.selectedCard,
+          description: card.description,
+        };
+        this.cdr.markForCheck();
+      });
+
     this.boardSocketService.commentDeleted$
       .pipe(takeUntilDestroyed())
       .subscribe(({ commentId, cardId, boardId }) => {
