@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  Headers,
   Param,
   Patch,
   Post,
@@ -42,11 +43,13 @@ export class ListsController {
     @Param('boardId') boardId: string,
     @Req() request: AuthenticatedRequest,
     @Body() createListDto: CreateListDto,
+    @Headers('x-socket-id') socketId?: string,
   ) {
     return this.listsService.create(
       boardId,
       request.user.userId,
       createListDto,
+      socketId,
     );
   }
 
@@ -61,15 +64,20 @@ export class ListsController {
     @Param('id') id: string,
     @Req() request: AuthenticatedRequest,
     @Body() updateListDto: UpdateListDto,
+    @Headers('x-socket-id') socketId?: string,
   ) {
-    return this.listsService.update(id, request.user.userId, updateListDto);
+    return this.listsService.update(id, request.user.userId, updateListDto, socketId);
   }
 
   @Roles(BoardMemberRole.OWNER, BoardMemberRole.ADMIN)
   @UseGuards(ListBoardRoleGuard)
   @Delete('lists/:id')
-  remove(@Param('id') id: string, @Req() request: AuthenticatedRequest) {
-    return this.listsService.remove(id, request.user.userId);
+  remove(
+    @Param('id') id: string,
+    @Req() request: AuthenticatedRequest,
+    @Headers('x-socket-id') socketId?: string,
+  ) {
+    return this.listsService.remove(id, request.user.userId, socketId);
   }
 
   @Roles(
@@ -82,7 +90,8 @@ export class ListsController {
   reorder(
     @Param('boardId') boardId: string,
     @Body() reorderListsDto: ReorderListsDto,
+    @Headers('x-socket-id') socketId?: string,
   ) {
-    return this.listsService.reorder(boardId, reorderListsDto);
+    return this.listsService.reorder(boardId, reorderListsDto, socketId);
   }
 }

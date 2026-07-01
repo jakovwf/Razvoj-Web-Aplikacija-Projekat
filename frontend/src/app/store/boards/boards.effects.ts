@@ -1,11 +1,17 @@
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { catchError, concatMap, exhaustMap, map, mergeMap, of, switchMap, tap } from 'rxjs';
+import { catchError, concatMap, exhaustMap, map, merge, mergeMap, of, switchMap, takeUntil, tap } from 'rxjs';
+import { BoardSocketService } from '../../core/services/board-socket.service';
 import { BoardService } from '../../core/services/board';
 import { CardService } from '../../core/services/card';
 import { ListService } from '../../core/services/list';
+import { SocketService } from '../../core/services/socket.service';
 import {
+  cardCreatedRemotely,
+  cardDeletedRemotely,
+  cardUpdatedRemotely,
+  cardsReorderedRemotely,
   createBoard,
   createBoardFailure,
   createBoardSuccess,
@@ -30,6 +36,10 @@ import {
   loadMyBoards,
   loadMyBoardsFailure,
   loadMyBoardsSuccess,
+  listCreatedRemotely,
+  listDeletedRemotely,
+  listsReorderedRemotely,
+  listUpdatedRemotely,
   reorderCards,
   reorderCardsFailure,
   reorderCardsSuccess,
@@ -53,6 +63,8 @@ export class BoardsEffects {
   private readonly boardService = inject(BoardService);
   private readonly listService = inject(ListService);
   private readonly cardService = inject(CardService);
+  private readonly socketService = inject(SocketService);
+  private readonly boardSocketService = inject(BoardSocketService);
   private readonly router = inject(Router);
 
   readonly loadMyBoards$ = createEffect(() =>
@@ -218,6 +230,43 @@ export class BoardsEffects {
         ),
       ),
     ),
+  );
+
+  readonly boardSocketConnect$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(loadBoardSuccess),
+      switchMap(({ board }) => {
+        this.socketService.joinBoard(board.id);
+
+        return merge(
+          this.boardSocketService.cardCreated$.pipe(
+            map(({ card }) => cardCreatedRemotely({ card })),
+          ),
+          this.boardSocketService.cardUpdated$.pipe(
+            map(({ card }) => cardUpdatedRemotely({ card })),
+          ),
+          this.boardSocketService.cardDeleted$.pipe(map((data) => cardDeletedRemotely(data))),
+          this.boardSocketService.cardsReordered$.pipe(map((data) => cardsReorderedRemotely(data))),
+          this.boardSocketService.listCreated$.pipe(
+            map(({ list }) => listCreatedRemotely({ list })),
+          ),
+          this.boardSocketService.listUpdated$.pipe(
+            map(({ list }) => listUpdatedRemotely({ list })),
+          ),
+          this.boardSocketService.listDeleted$.pipe(map((data) => listDeletedRemotely(data))),
+          this.boardSocketService.listsReordered$.pipe(map((data) => listsReorderedRemotely(data))),
+        ).pipe(takeUntil(this.actions$.pipe(ofType(loadBoard))));
+      }),
+    ),
+  );
+
+  readonly boardSocketDisconnect$ = createEffect(
+    () =>
+      this.actions$.pipe(
+        ofType(loadBoard),
+        tap(() => this.socketService.leaveCurrentBoard()),
+      ),
+    { dispatch: false },
   );
 
   private getErrorMessage(error: unknown): string {

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ActivityType, NotificationType } from '@prisma/client';
 import { ActivityService } from '../activity/activity.service';
+import { AppGateway } from '../gateway/app.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddCardLabelDto } from './dto/add-card-label.dto';
@@ -20,9 +21,10 @@ export class CardsService {
     private readonly prisma: PrismaService,
     private readonly activityService: ActivityService,
     private readonly notificationsService: NotificationsService,
+    private readonly appGateway: AppGateway,
   ) {}
 
-  async create(listId: string, userId: string, createCardDto: CreateCardDto) {
+  async create(listId: string, userId: string, createCardDto: CreateCardDto, socketId?: string) {
     const aggregate = await this.prisma.card.aggregate({
       where: { listId },
       _max: { position: true },
@@ -46,6 +48,13 @@ export class CardsService {
       payload: { cardTitle: card.title },
     });
 
+    this.appGateway.emitToBoardExcept(
+      card.list.boardId,
+      'card:created',
+      { card, listId },
+      socketId,
+    );
+
     return card;
   }
 
@@ -56,7 +65,7 @@ export class CardsService {
     });
   }
 
-  async update(id: string, userId: string, updateCardDto: UpdateCardDto) {
+  async update(id: string, userId: string, updateCardDto: UpdateCardDto, socketId?: string) {
     const card = await this.prisma.card.update({
       where: { id },
       data: {
@@ -74,10 +83,12 @@ export class CardsService {
       payload: { cardTitle: card.title },
     });
 
+    this.appGateway.emitToBoardExcept(card.list.boardId, 'card:updated', { card }, socketId);
+
     return card;
   }
 
-  async remove(id: string, userId: string) {
+  async remove(id: string, userId: string, socketId?: string) {
     const existingCard = await this.prisma.card.findUnique({
       where: { id },
       select: {
@@ -104,6 +115,13 @@ export class CardsService {
       payload: { cardTitle: existingCard.title },
     });
 
+    this.appGateway.emitToBoardExcept(
+      existingCard.list.boardId,
+      'card:deleted',
+      { cardId: id, listId: deletedCard.listId },
+      socketId,
+    );
+
     return deletedCard;
   }
 
@@ -111,6 +129,7 @@ export class CardsService {
     boardId: string,
     userId: string,
     reorderCardsDto: ReorderCardsDto,
+    socketId?: string,
   ) {
     const existingCards = await this.prisma.card.findMany({
       where: {
@@ -194,6 +213,13 @@ export class CardsService {
           });
         }
       }),
+    );
+
+    this.appGateway.emitToBoardExcept(
+      boardId,
+      'cards:reordered',
+      { items: reorderCardsDto.items },
+      socketId,
     );
 
     return cards;

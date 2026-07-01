@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { catchError, exhaustMap, map, of, switchMap, tap } from 'rxjs';
 import { AuthService } from '../../core/services/auth';
+import { SocketService } from '../../core/services/socket.service';
 import { User } from '../models';
 import {
   loadMe,
@@ -19,6 +20,7 @@ import {
 export class AuthEffects {
   private readonly actions$ = inject(Actions);
   private readonly authService = inject(AuthService);
+  private readonly socketService = inject(SocketService);
   private readonly router = inject(Router);
 
   readonly loginEffect$ = createEffect(() =>
@@ -61,6 +63,7 @@ export class AuthEffects {
         ofType(loginSuccess),
         tap(({ token }) => {
           localStorage.setItem('auth_token', token);
+          this.socketService.connect(token);
           void this.router.navigateByUrl(this.getLoginRedirectUrl());
         }),
       ),
@@ -71,12 +74,28 @@ export class AuthEffects {
     () =>
       this.actions$.pipe(
         ofType(logout),
+        tap(() => this.socketService.disconnect()),
         exhaustMap(() =>
           this.authService.logout().pipe(
             catchError(() => of(null)),
             tap(() => this.router.navigate(['/login'])),
           ),
         ),
+      ),
+    { dispatch: false },
+  );
+
+  readonly reconnectSocketAfterLoadMe$ = createEffect(
+    () =>
+      this.actions$.pipe(
+        ofType(loadMeSuccess),
+        tap(() => {
+          const token = this.authService.getToken();
+
+          if (token) {
+            this.socketService.connect(token);
+          }
+        }),
       ),
     { dispatch: false },
   );

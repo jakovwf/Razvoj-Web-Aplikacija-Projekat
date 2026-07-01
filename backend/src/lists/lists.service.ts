@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ActivityType } from '@prisma/client';
 import { ActivityService } from '../activity/activity.service';
+import { AppGateway } from '../gateway/app.gateway';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateListDto } from './dto/create-list.dto';
 import { ReorderListsDto } from './dto/reorder-lists.dto';
@@ -11,9 +12,10 @@ export class ListsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activityService: ActivityService,
+    private readonly appGateway: AppGateway,
   ) {}
 
-  async create(boardId: string, userId: string, createListDto: CreateListDto) {
+  async create(boardId: string, userId: string, createListDto: CreateListDto, socketId?: string) {
     const aggregate = await this.prisma.list.aggregate({
       where: { boardId },
       _max: { position: true },
@@ -35,10 +37,12 @@ export class ListsService {
       payload: { listTitle: list.title },
     });
 
+    this.appGateway.emitToBoardExcept(boardId, 'list:created', { list }, socketId);
+
     return list;
   }
 
-  async update(id: string, userId: string, updateListDto: UpdateListDto) {
+  async update(id: string, userId: string, updateListDto: UpdateListDto, socketId?: string) {
     const list = await this.prisma.list.update({
       where: { id },
       data: {
@@ -54,10 +58,12 @@ export class ListsService {
       payload: { listTitle: list.title },
     });
 
+    this.appGateway.emitToBoardExcept(list.boardId, 'list:updated', { list }, socketId);
+
     return list;
   }
 
-  async remove(id: string, userId: string) {
+  async remove(id: string, userId: string, socketId?: string) {
     const existingList = await this.prisma.list.findUnique({
       where: { id },
       select: {
@@ -82,11 +88,18 @@ export class ListsService {
       payload: { listTitle: existingList.title },
     });
 
+    this.appGateway.emitToBoardExcept(
+      existingList.boardId,
+      'list:deleted',
+      { listId: id },
+      socketId,
+    );
+
     return deletedList;
   }
 
-  async reorder(boardId: string, reorderListsDto: ReorderListsDto) {
-    return this.prisma.$transaction(async (tx) => {
+  async reorder(boardId: string, reorderListsDto: ReorderListsDto, socketId?: string) {
+    const lists = await this.prisma.$transaction(async (tx) => {
       const updates = await Promise.all(
         reorderListsDto.items.map((item) =>
           tx.list.updateMany({
@@ -111,6 +124,15 @@ export class ListsService {
         orderBy: { position: 'asc' },
       });
     });
+
+    this.appGateway.emitToBoardExcept(
+      boardId,
+      'lists:reordered',
+      { items: reorderListsDto.items },
+      socketId,
+    );
+
+    return lists;
   }
 
   private readonly listInclude = {

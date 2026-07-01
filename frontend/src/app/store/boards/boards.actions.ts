@@ -1,4 +1,4 @@
-import { createActionGroup, emptyProps, props } from '@ngrx/store';
+import { createAction, createActionGroup, emptyProps, props } from '@ngrx/store';
 import { Board, BoardList, Card } from '../models';
 
 export const boardsActions = createActionGroup({
@@ -93,3 +93,36 @@ export const {
   updateBoard,
   removeBoard,
 } = boardsActions;
+
+export const cardCreatedRemotely = createAction(
+  '[Board Socket] Card Created',
+  props<{ card: Card }>(),
+);
+export const cardUpdatedRemotely = createAction(
+  '[Board Socket] Card Updated',
+  props<{ card: Card }>(),
+);
+export const cardDeletedRemotely = createAction(
+  '[Board Socket] Card Deleted',
+  props<{ cardId: string; listId: string }>(),
+);
+export const cardsReorderedRemotely = createAction(
+  '[Board Socket] Cards Reordered',
+  props<{ items: { id: string; listId: string; position: number }[] }>(),
+);
+export const listCreatedRemotely = createAction(
+  '[Board Socket] List Created',
+  props<{ list: BoardList }>(),
+);
+export const listUpdatedRemotely = createAction(
+  '[Board Socket] List Updated',
+  props<{ list: BoardList }>(),
+);
+export const listDeletedRemotely = createAction(
+  '[Board Socket] List Deleted',
+  props<{ listId: string }>(),
+);
+export const listsReorderedRemotely = createAction(
+  '[Board Socket] Lists Reordered',
+  props<{ items: { id: string; position: number }[] }>(),
+);

@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Param,
   Patch,
   Post,
@@ -45,11 +46,13 @@ export class CardsController {
     @Param('listId') listId: string,
     @Req() request: AuthenticatedRequest,
     @Body() createCardDto: CreateCardDto,
+    @Headers('x-socket-id') socketId?: string,
   ) {
     return this.cardsService.create(
       listId,
       request.user.userId,
       createCardDto,
+      socketId,
     );
   }
 
@@ -75,15 +78,20 @@ export class CardsController {
     @Param('id') id: string,
     @Req() request: AuthenticatedRequest,
     @Body() updateCardDto: UpdateCardDto,
+    @Headers('x-socket-id') socketId?: string,
   ) {
-    return this.cardsService.update(id, request.user.userId, updateCardDto);
+    return this.cardsService.update(id, request.user.userId, updateCardDto, socketId);
   }
 
   @Roles(BoardMemberRole.OWNER, BoardMemberRole.ADMIN)
   @UseGuards(CardBoardRoleGuard)
   @Delete('cards/:id')
-  remove(@Param('id') id: string, @Req() request: AuthenticatedRequest) {
-    return this.cardsService.remove(id, request.user.userId);
+  remove(
+    @Param('id') id: string,
+    @Req() request: AuthenticatedRequest,
+    @Headers('x-socket-id') socketId?: string,
+  ) {
+    return this.cardsService.remove(id, request.user.userId, socketId);
   }
 
   @Roles(
@@ -97,11 +105,13 @@ export class CardsController {
     @Param('boardId') boardId: string,
     @Req() request: AuthenticatedRequest,
     @Body() reorderCardsDto: ReorderCardsDto,
+    @Headers('x-socket-id') socketId?: string,
   ) {
     return this.cardsService.reorder(
       boardId,
       request.user.userId,
       reorderCardsDto,
+      socketId,
     );
   }
 

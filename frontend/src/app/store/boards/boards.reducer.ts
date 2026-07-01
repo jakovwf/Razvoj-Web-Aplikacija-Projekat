@@ -3,6 +3,10 @@ import { createReducer, on } from '@ngrx/store';
 import { Board, BoardList, Card } from '../models';
 import {
   addBoard,
+  cardCreatedRemotely,
+  cardDeletedRemotely,
+  cardUpdatedRemotely,
+  cardsReorderedRemotely,
   createBoard,
   createBoardFailure,
   createBoardSuccess,
@@ -27,6 +31,10 @@ import {
   loadMyBoards,
   loadMyBoardsFailure,
   loadMyBoardsSuccess,
+  listCreatedRemotely,
+  listDeletedRemotely,
+  listsReorderedRemotely,
+  listUpdatedRemotely,
   removeBoard,
   reorderCards,
   reorderCardsFailure,
@@ -121,13 +129,13 @@ export const boardsReducer = createReducer(
       error: null,
     }),
   ),
-  on(createListSuccess, (state, { list }) =>
+  on(createListSuccess, listCreatedRemotely, (state, { list }) =>
     updateSelectedBoard(state, (board) => ({
       ...board,
       lists: [...(board.lists ?? []), list].sort(sortByPosition),
     })),
   ),
-  on(updateListSuccess, (state, { list }) =>
+  on(updateListSuccess, listUpdatedRemotely, (state, { list }) =>
     updateSelectedBoard(state, (board) => ({
       ...board,
       lists: (board.lists ?? []).map((existingList) =>
@@ -135,13 +143,13 @@ export const boardsReducer = createReducer(
       ),
     })),
   ),
-  on(deleteListSuccess, (state, { listId }) =>
+  on(deleteListSuccess, listDeletedRemotely, (state, { listId }) =>
     updateSelectedBoard(state, (board) => ({
       ...board,
       lists: (board.lists ?? []).filter((list) => list.id !== listId),
     })),
   ),
-  on(createCardSuccess, (state, { card }) =>
+  on(createCardSuccess, cardCreatedRemotely, (state, { card }) =>
     updateSelectedBoard(state, (board) => ({
       ...board,
       lists: (board.lists ?? []).map((list) =>
@@ -151,7 +159,7 @@ export const boardsReducer = createReducer(
       ),
     })),
   ),
-  on(updateCardSuccess, (state, { card }) =>
+  on(updateCardSuccess, cardUpdatedRemotely, (state, { card }) =>
     updateSelectedBoard(state, (board) => ({
       ...board,
       lists: (board.lists ?? []).map((list) => ({
@@ -162,7 +170,7 @@ export const boardsReducer = createReducer(
       })),
     })),
   ),
-  on(deleteCardSuccess, (state, { cardId, listId }) =>
+  on(deleteCardSuccess, cardDeletedRemotely, (state, { cardId, listId }) =>
     updateSelectedBoard(state, (board) => ({
       ...board,
       lists: (board.lists ?? []).map((list) =>
@@ -180,6 +188,18 @@ export const boardsReducer = createReducer(
   ),
   on(reorderCards, (state, { items }) =>
     startSelectedBoardReorder(state, (board) => ({
+      ...board,
+      lists: applyReorderedCardItems(board.lists ?? [], items),
+    })),
+  ),
+  on(listsReorderedRemotely, (state, { items }) =>
+    updateSelectedBoard(state, (board) => ({
+      ...board,
+      lists: applyReorderedListItems(board.lists ?? [], items),
+    })),
+  ),
+  on(cardsReorderedRemotely, (state, { items }) =>
+    updateSelectedBoard(state, (board) => ({
       ...board,
       lists: applyReorderedCardItems(board.lists ?? [], items),
     })),
