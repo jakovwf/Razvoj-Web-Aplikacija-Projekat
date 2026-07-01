@@ -173,6 +173,23 @@ export class InvitesService {
       select: this.safeUserSelect,
     });
 
+    const owner = await this.prisma.boardMember.findFirst({
+      where: {
+        boardId: invite.boardId,
+        role: BoardMemberRole.OWNER,
+      },
+      select: { userId: true },
+    });
+
+    if (user && owner) {
+      await this.notificationsService.createNotification({
+        userId: owner.userId,
+        type: NotificationType.MEMBER_JOINED,
+        message: `${user.displayName} je prihvatio pozivnicu za board ${invite.board.title}`,
+        relatedBoardId: invite.boardId,
+      });
+    }
+
     if (user) {
       this.appGateway.emitToBoard(invite.boardId, 'member:joined', {
         user,

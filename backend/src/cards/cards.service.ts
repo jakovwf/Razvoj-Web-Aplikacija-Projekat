@@ -144,6 +144,9 @@ export class CardsService {
         id: true,
         title: true,
         listId: true,
+        members: {
+          select: { userId: true },
+        },
       },
     });
 
@@ -213,6 +216,18 @@ export class CardsService {
               toListId: item.listId,
             },
           });
+
+          await Promise.all(
+            existingCard.members.map((member) =>
+              this.notificationsService.createNotification({
+                userId: member.userId,
+                type: NotificationType.CARD_MOVED,
+                message: `Kartica ${existingCard.title} je premeštena`,
+                relatedCardId: existingCard.id,
+                relatedBoardId: boardId,
+              }),
+            ),
+          );
         }
       }),
     );

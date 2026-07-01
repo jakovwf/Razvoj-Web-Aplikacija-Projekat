@@ -5,8 +5,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ActivityType, BoardMemberRole } from '@prisma/client';
+import { ActivityType, BoardMemberRole, NotificationType } from '@prisma/client';
 import { ActivityService } from '../activity/activity.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddBoardMemberDto } from './dto/add-board-member.dto';
 import { CreateBoardDto } from './dto/create-board.dto';
@@ -18,6 +19,7 @@ export class BoardsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activityService: ActivityService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   findAllForUser(userId: string) {
@@ -84,6 +86,19 @@ export class BoardsService {
       userId,
       payload: { boardTitle: board.title },
     });
+
+    await Promise.all(
+      board.members
+        .filter((member) => member.userId !== userId)
+        .map((member) =>
+          this.notificationsService.createNotification({
+            userId: member.userId,
+            type: NotificationType.BOARD_UPDATED,
+            message: `Board ${board.title} je izmenjen`,
+            relatedBoardId: board.id,
+          }),
+        ),
+    );
 
     return board;
   }

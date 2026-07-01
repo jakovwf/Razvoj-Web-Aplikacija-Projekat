@@ -3,9 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ActivityType, BoardMemberRole } from '@prisma/client';
+import { ActivityType, BoardMemberRole, NotificationType } from '@prisma/client';
 import { ActivityService } from '../activity/activity.service';
 import { AppGateway } from '../gateway/app.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
@@ -16,6 +17,7 @@ export class CommentsService {
     private readonly prisma: PrismaService,
     private readonly activityService: ActivityService,
     private readonly appGateway: AppGateway,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   findAll(cardId: string) {
@@ -51,6 +53,20 @@ export class CommentsService {
         commentPreview: createCommentDto.content.slice(0, 50),
       },
     });
+
+    await Promise.all(
+      card.members
+        .filter((member) => member.userId !== authorId)
+        .map((member) =>
+          this.notificationsService.createNotification({
+            userId: member.userId,
+            type: NotificationType.COMMENT_ADDED,
+            message: `${comment.author.displayName} je komentarisao na kartici: ${card.title}`,
+            relatedCardId: cardId,
+            relatedBoardId: card.list.boardId,
+          }),
+        ),
+    );
 
     this.appGateway.emitToBoard(card.list.boardId, 'comment:added', {
       comment,
@@ -151,6 +167,10 @@ export class CommentsService {
     const card = await this.prisma.card.findUnique({
       where: { id: cardId },
       select: {
+        title: true,
+        members: {
+          select: { userId: true },
+        },
         list: {
           select: { boardId: true },
         },
