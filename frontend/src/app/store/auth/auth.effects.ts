@@ -71,7 +71,7 @@ export class AuthEffects {
     () =>
       this.actions$.pipe(
         ofType(logout),
-        switchMap(() =>
+        exhaustMap(() =>
           this.authService.logout().pipe(
             catchError(() => of(null)),
             tap(() => this.router.navigate(['/login'])),
