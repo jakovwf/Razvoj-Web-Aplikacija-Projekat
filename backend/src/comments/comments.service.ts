@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ActivityType, BoardMemberRole } from '@prisma/client';
 import { ActivityService } from '../activity/activity.service';
+import { AppGateway } from '../gateway/app.gateway';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
@@ -14,6 +15,7 @@ export class CommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activityService: ActivityService,
+    private readonly appGateway: AppGateway,
   ) {}
 
   findAll(cardId: string) {
@@ -48,6 +50,12 @@ export class CommentsService {
         cardId,
         commentPreview: createCommentDto.content.slice(0, 50),
       },
+    });
+
+    this.appGateway.emitToBoard(card.list.boardId, 'comment:added', {
+      comment,
+      cardId,
+      boardId: card.list.boardId,
     });
 
     return comment;
@@ -128,6 +136,12 @@ export class CommentsService {
       boardId: comment.card.list.boardId,
       userId,
       payload: { cardId: deletedComment.cardId },
+    });
+
+    this.appGateway.emitToBoard(comment.card.list.boardId, 'comment:deleted', {
+      commentId: deletedComment.id,
+      cardId: deletedComment.cardId,
+      boardId: comment.card.list.boardId,
     });
 
     return deletedComment;

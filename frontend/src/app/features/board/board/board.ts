@@ -8,6 +8,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { catchError, combineLatest, distinctUntilChanged, finalize, forkJoin, map, of, take } from 'rxjs';
 import { CommentService } from '../../../core/services/comment';
+import { BoardSocketService } from '../../../core/services/board-socket.service';
 import { CardService } from '../../../core/services/card';
 import { ListService } from '../../../core/services/list';
 import { LabelService } from '../../../core/services/label.service';
@@ -33,7 +34,7 @@ import {
   selectBoardsReorderError,
   selectSelectedBoard,
 } from '../../../store/boards/boards.selectors';
-import { Attachment, Board as BoardModel, BoardList, Card, CardComment, CardLabel, CardMember, Label, User } from '../../../store/models';
+import { Attachment, Board as BoardModel, BoardList, BoardMember, Card, CardComment, CardLabel, CardMember, Label, User } from '../../../store/models';
 import { BoardListComponent } from '../components/board-list/board-list';
 import { CardDetailComponent } from '../components/card-detail/card-detail';
 
@@ -46,6 +47,7 @@ import { CardDetailComponent } from '../components/card-detail/card-detail';
 export class Board {
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly cardService = inject(CardService);
+  private readonly boardSocketService = inject(BoardSocketService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly commentService = inject(CommentService);
   private readonly listService = inject(ListService);
@@ -124,6 +126,144 @@ export class Board {
         }
 
         this.hydrateCardLabels(board);
+        this.cdr.markForCheck();
+      });
+
+    this.boardSocketService.commentAdded$
+      .pipe(takeUntilDestroyed())
+      .subscribe(({ comment, cardId, boardId }) => {
+        if (this.currentBoard?.id !== boardId) {
+          return;
+        }
+
+        const comments = this.getCommentsForCard(cardId);
+
+        if (!comments.some((item) => item.id === comment.id)) {
+          this.commentsMutationVersion++;
+          this.commentsByCardId = { ...this.commentsByCardId, [cardId]: [...comments, comment] };
+          this.cdr.markForCheck();
+        }
+      });
+
+    this.boardSocketService.commentDeleted$
+      .pipe(takeUntilDestroyed())
+      .subscribe(({ commentId, cardId, boardId }) => {
+        if (this.currentBoard?.id !== boardId) {
+          return;
+        }
+
+        this.commentsMutationVersion++;
+        this.commentsByCardId = {
+          ...this.commentsByCardId,
+          [cardId]: this.getCommentsForCard(cardId).filter((comment) => comment.id !== commentId),
+        };
+        this.cdr.markForCheck();
+      });
+
+    this.boardSocketService.cardLabelAdded$
+      .pipe(takeUntilDestroyed())
+      .subscribe(({ cardId, label, boardId }) => {
+        if (this.currentBoard?.id !== boardId) {
+          return;
+        }
+
+        this.updateCardFromSocket(cardId, (card) => ({
+          ...card,
+          labels: (card.labels ?? []).some((item) => item.labelId === label.labelId)
+            ? card.labels
+            : [...(card.labels ?? []), label],
+        }));
+      });
+
+    this.boardSocketService.cardLabelRemoved$
+      .pipe(takeUntilDestroyed())
+      .subscribe(({ cardId, labelId, boardId }) => {
+        if (this.currentBoard?.id === boardId) {
+          this.updateCardFromSocket(cardId, (card) => ({
+            ...card,
+            labels: (card.labels ?? []).filter((item) => item.labelId !== labelId),
+          }));
+        }
+      });
+
+    this.boardSocketService.cardMemberAdded$
+      .pipe(takeUntilDestroyed())
+      .subscribe(({ cardId, user, boardId }) => {
+        if (this.currentBoard?.id !== boardId) {
+          return;
+        }
+
+        this.updateCardFromSocket(cardId, (card) => ({
+          ...card,
+          members: (card.members ?? []).some((member) => member.userId === user.id)
+            ? card.members
+            : [
+                ...(card.members ?? []),
+                { id: `${cardId}:${user.id}`, cardId, userId: user.id, user },
+              ],
+        }));
+      });
+
+    this.boardSocketService.cardMemberRemoved$
+      .pipe(takeUntilDestroyed())
+      .subscribe(({ cardId, userId, boardId }) => {
+        if (this.currentBoard?.id === boardId) {
+          this.updateCardFromSocket(cardId, (card) => ({
+            ...card,
+            members: (card.members ?? []).filter((member) => member.userId !== userId),
+          }));
+        }
+      });
+
+    this.boardSocketService.attachmentAdded$
+      .pipe(takeUntilDestroyed())
+      .subscribe(({ attachment, cardId, boardId }) => {
+        if (this.currentBoard?.id !== boardId) {
+          return;
+        }
+
+        this.updateCardFromSocket(cardId, (card) => ({
+          ...card,
+          attachments: (card.attachments ?? []).some((item) => item.id === attachment.id)
+            ? card.attachments
+            : [...(card.attachments ?? []), attachment],
+        }));
+      });
+
+    this.boardSocketService.attachmentDeleted$
+      .pipe(takeUntilDestroyed())
+      .subscribe(({ attachmentId, cardId, boardId }) => {
+        if (this.currentBoard?.id === boardId) {
+          this.updateCardFromSocket(cardId, (card) => ({
+            ...card,
+            attachments: (card.attachments ?? []).filter((item) => item.id !== attachmentId),
+          }));
+        }
+      });
+
+    this.boardSocketService.memberJoined$
+      .pipe(takeUntilDestroyed())
+      .subscribe(({ user, role, boardId }) => {
+        if (!this.currentBoard || this.currentBoard.id !== boardId) {
+          return;
+        }
+
+        const members = this.currentBoard.members ?? [];
+
+        if (members.some((member) => member.userId === user.id)) {
+          return;
+        }
+
+        const member: BoardMember = {
+          id: `${boardId}:${user.id}`,
+          boardId,
+          userId: user.id,
+          role,
+          user,
+        };
+        const updatedBoard = { ...this.currentBoard, members: [...members, member] };
+        this.currentBoard = updatedBoard;
+        this.store.dispatch(updateBoard({ board: updatedBoard }));
         this.cdr.markForCheck();
       });
 
@@ -352,11 +492,13 @@ export class Board {
         next: (comment) => {
           const currentComments = this.getCommentsForCard(event.cardId);
 
-          this.commentsMutationVersion++;
-          this.commentsByCardId = {
-            ...this.commentsByCardId,
-            [event.cardId]: [...currentComments, comment],
-          };
+          if (!currentComments.some((item) => item.id === comment.id)) {
+            this.commentsMutationVersion++;
+            this.commentsByCardId = {
+              ...this.commentsByCardId,
+              [event.cardId]: [...currentComments, comment],
+            };
+          }
           this.cdr.markForCheck();
         },
         error: () => {
@@ -870,6 +1012,25 @@ export class Board {
     const updatedCard = { ...this.selectedCard, labels };
     this.selectedCard = updatedCard;
     this.store.dispatch(updateCardSuccess({ card: updatedCard }));
+  }
+
+  private updateCardFromSocket(cardId: string, update: (card: Card) => Card): void {
+    const card = this.currentBoard?.lists
+      ?.flatMap((list) => list.cards ?? [])
+      .find((item) => item.id === cardId);
+
+    if (!card) {
+      return;
+    }
+
+    const updatedCard = update(card);
+
+    if (this.selectedCard?.id === cardId) {
+      this.selectedCard = updatedCard;
+    }
+
+    this.store.dispatch(updateCardSuccess({ card: updatedCard }));
+    this.cdr.markForCheck();
   }
 
   private updateBoardLabelState(

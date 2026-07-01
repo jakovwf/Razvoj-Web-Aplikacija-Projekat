@@ -91,4 +91,8 @@ export class AppGateway implements OnGatewayConnection {
 
     room.emit(event, payload);
   }
+
+  emitToBoard(boardId: string, event: string, payload: unknown): void {
+    this.server.to(`board:${boardId}`).emit(event, payload);
+  }
 }

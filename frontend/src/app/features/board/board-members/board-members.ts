@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, inject } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -6,6 +6,8 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { catchError, debounceTime, distinctUntilChanged, finalize, forkJoin, map, of, switchMap, take, tap } from 'rxjs';
 import { BoardService } from '../../../core/services/board';
+import { BoardSocketService } from '../../../core/services/board-socket.service';
+import { SocketService } from '../../../core/services/socket.service';
 import { UserService } from '../../../core/services/user';
 import { selectCurrentUser } from '../../../store/auth/auth.selectors';
 import { Board, BoardInvite, BoardMember, BoardMemberRole, User } from '../../../store/models';
@@ -18,10 +20,13 @@ import { Board, BoardInvite, BoardMember, BoardMemberRole, User } from '../../..
 })
 export class BoardMembers {
   private readonly boardService = inject(BoardService);
+  private readonly boardSocketService = inject(BoardSocketService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly formBuilder = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly route = inject(ActivatedRoute);
   private readonly store = inject(Store);
+  private readonly socketService = inject(SocketService);
   private readonly userService = inject(UserService);
 
   boardId: string | null = null;
@@ -55,9 +60,14 @@ export class BoardMembers {
         takeUntilDestroyed(),
       )
       .subscribe((boardId) => {
+        if (this.boardId && this.boardId !== boardId) {
+          this.socketService.leaveBoard(this.boardId);
+        }
+
         this.boardId = boardId;
 
         if (boardId) {
+          this.socketService.joinBoard(boardId);
           this.loadBoardMembers(boardId);
           return;
         }
@@ -69,6 +79,32 @@ export class BoardMembers {
         this.error = 'Board nije pronadjen.';
         this.cdr.markForCheck();
       });
+
+    this.boardSocketService.memberJoined$
+      .pipe(takeUntilDestroyed())
+      .subscribe(({ user, role, boardId }) => {
+        if (this.boardId !== boardId || this.members.some((member) => member.userId === user.id)) {
+          return;
+        }
+
+        this.members = [
+          ...this.members,
+          {
+            id: `${boardId}:${user.id}`,
+            boardId,
+            userId: user.id,
+            role,
+            user,
+          },
+        ];
+        this.cdr.markForCheck();
+      });
+
+    this.destroyRef.onDestroy(() => {
+      if (this.boardId) {
+        this.socketService.leaveBoard(this.boardId);
+      }
+    });
 
     this.store
       .select(selectCurrentUser)

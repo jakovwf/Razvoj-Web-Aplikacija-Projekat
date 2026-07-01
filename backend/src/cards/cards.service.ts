@@ -287,6 +287,12 @@ export class CardsService {
       });
     }
 
+    this.appGateway.emitToBoard(card.list.boardId, 'card:member:added', {
+      cardId,
+      user: cardMember.user,
+      boardId: card.list.boardId,
+    });
+
     return cardMember;
   }
 
@@ -328,10 +334,17 @@ export class CardsService {
       },
     });
 
+    this.appGateway.emitToBoard(card.list.boardId, 'card:member:removed', {
+      cardId,
+      userId: removedUserId,
+      boardId: card.list.boardId,
+    });
+
     return cardMember;
   }
 
   async addLabel(cardId: string, addCardLabelDto: AddCardLabelDto) {
+    const card = await this.getCardActivityContext(cardId);
     await this.requireLabelExists(addCardLabelDto.labelId);
 
     const existingLabel = await this.prisma.cardLabel.findUnique({
@@ -347,7 +360,7 @@ export class CardsService {
       throw new ConflictException('Label is already added to this card');
     }
 
-    return this.prisma.cardLabel.create({
+    const cardLabel = await this.prisma.cardLabel.create({
       data: {
         cardId,
         labelId: addCardLabelDto.labelId,
@@ -356,12 +369,20 @@ export class CardsService {
         label: true,
       },
     });
+
+    this.appGateway.emitToBoard(card.list.boardId, 'card:label:added', {
+      cardId,
+      label: cardLabel,
+      boardId: card.list.boardId,
+    });
+
+    return cardLabel;
   }
 
   async removeLabel(cardId: string, labelId: string) {
-    await this.requireCardLabel(cardId, labelId);
+    const cardLabelContext = await this.requireCardLabel(cardId, labelId);
 
-    return this.prisma.cardLabel.delete({
+    const cardLabel = await this.prisma.cardLabel.delete({
       where: {
         cardId_labelId: {
           cardId,
@@ -372,6 +393,15 @@ export class CardsService {
         label: true,
       },
     });
+
+    const boardId = cardLabelContext.card.list.boardId;
+    this.appGateway.emitToBoard(boardId, 'card:label:removed', {
+      cardId,
+      labelId,
+      boardId,
+    });
+
+    return cardLabel;
   }
 
   private async requireLabelExists(labelId: string) {
@@ -409,11 +439,22 @@ export class CardsService {
           labelId,
         },
       },
+      include: {
+        card: {
+          select: {
+            list: {
+              select: { boardId: true },
+            },
+          },
+        },
+      },
     });
 
     if (!cardLabel) {
       throw new NotFoundException('Card label not found');
     }
+
+    return cardLabel;
   }
 
   private async getCardActivityContext(cardId: string) {

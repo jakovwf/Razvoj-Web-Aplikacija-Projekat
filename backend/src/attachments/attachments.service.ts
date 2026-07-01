@@ -8,6 +8,7 @@ import { BoardMemberRole } from '@prisma/client';
 import { UploadApiResponse } from 'cloudinary';
 import { Readable } from 'stream';
 import { cloudinary } from '../cloudinary/cloudinary.config';
+import { AppGateway } from '../gateway/app.gateway';
 import { PrismaService } from '../prisma/prisma.service';
 
 interface UploadedAttachmentFile {
@@ -30,13 +31,18 @@ const ALLOWED_ATTACHMENT_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'pd
 
 @Injectable()
 export class AttachmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly appGateway: AppGateway,
+  ) {}
 
   async upload(
     cardId: string,
     uploadedById: string,
     file: UploadedAttachmentFile,
   ) {
+    const boardId = await this.getCardBoardId(cardId);
+
     if (!file) {
       throw new BadRequestException('File is required');
     }
@@ -68,11 +74,19 @@ export class AttachmentsService {
       include: this.attachmentInclude,
     });
 
-    return this.withAttachmentMetadata(attachment, {
+    const attachmentWithMetadata = this.withAttachmentMetadata(attachment, {
       mimeType: file.mimetype,
       resourceType: uploadedFile.resource_type,
       format: uploadedFile.format,
     });
+
+    this.appGateway.emitToBoard(boardId, 'attachment:added', {
+      attachment: attachmentWithMetadata,
+      cardId,
+      boardId,
+    });
+
+    return attachmentWithMetadata;
   }
 
   async findAll(cardId: string) {
@@ -137,7 +151,29 @@ export class AttachmentsService {
       include: this.attachmentInclude,
     });
 
-    return this.withAttachmentMetadata(deletedAttachment);
+    const attachmentWithMetadata = this.withAttachmentMetadata(deletedAttachment);
+    const boardId = attachment.card.list.boardId;
+
+    this.appGateway.emitToBoard(boardId, 'attachment:deleted', {
+      attachmentId: deletedAttachment.id,
+      cardId: deletedAttachment.cardId,
+      boardId,
+    });
+
+    return attachmentWithMetadata;
+  }
+
+  private async getCardBoardId(cardId: string): Promise<string> {
+    const card = await this.prisma.card.findUnique({
+      where: { id: cardId },
+      select: { list: { select: { boardId: true } } },
+    });
+
+    if (!card) {
+      throw new NotFoundException('Card not found');
+    }
+
+    return card.list.boardId;
   }
 
   private uploadToCloudinary(

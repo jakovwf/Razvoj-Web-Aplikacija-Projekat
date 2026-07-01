@@ -13,6 +13,7 @@ import {
 } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { ActivityService } from '../activity/activity.service';
+import { AppGateway } from '../gateway/app.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateInviteDto } from './dto/create-invite.dto';
@@ -29,6 +30,7 @@ export class InvitesService {
     private readonly mailerService: MailerService,
     private readonly activityService: ActivityService,
     private readonly notificationsService: NotificationsService,
+    private readonly appGateway: AppGateway,
   ) {}
 
   async create(
@@ -165,6 +167,19 @@ export class InvitesService {
       userId: currentUser.userId,
       payload: { email: currentUser.email },
     });
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: currentUser.userId },
+      select: this.safeUserSelect,
+    });
+
+    if (user) {
+      this.appGateway.emitToBoard(invite.boardId, 'member:joined', {
+        user,
+        role: result.boardMember.role,
+        boardId: invite.boardId,
+      });
+    }
 
     return result;
   }
