@@ -6,10 +6,11 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
-import { combineLatest, distinctUntilChanged, finalize, map, take } from 'rxjs';
+import { catchError, combineLatest, distinctUntilChanged, finalize, forkJoin, map, of, take } from 'rxjs';
 import { CommentService } from '../../../core/services/comment';
 import { CardService } from '../../../core/services/card';
 import { ListService } from '../../../core/services/list';
+import { LabelService } from '../../../core/services/label.service';
 import {
   createCard,
   createList,
@@ -21,6 +22,7 @@ import {
   reorderLists,
   updateCard,
   updateCardSuccess,
+  updateBoard,
   updateBoardDetails,
   updateListSuccess,
 } from '../../../store/boards/boards.actions';
@@ -31,7 +33,7 @@ import {
   selectBoardsReorderError,
   selectSelectedBoard,
 } from '../../../store/boards/boards.selectors';
-import { Attachment, Board as BoardModel, BoardList, Card, CardComment, CardMember, User } from '../../../store/models';
+import { Attachment, Board as BoardModel, BoardList, Card, CardComment, CardLabel, CardMember, Label, User } from '../../../store/models';
 import { BoardListComponent } from '../components/board-list/board-list';
 import { CardDetailComponent } from '../components/card-detail/card-detail';
 
@@ -47,6 +49,7 @@ export class Board {
   private readonly formBuilder = inject(FormBuilder);
   private readonly commentService = inject(CommentService);
   private readonly listService = inject(ListService);
+  private readonly labelService = inject(LabelService);
   private readonly route = inject(ActivatedRoute);
   private readonly store = inject(Store);
 
@@ -72,6 +75,9 @@ export class Board {
   attachmentUploading = false;
   attachmentDeletingId: string | null = null;
   attachmentError: string | null = null;
+  boardLabels: Label[] = [];
+  labelSaving = false;
+  labelError: string | null = null;
   renamingListId: string | null = null;
   listRenameErrors: Record<string, string | null> = {};
   editingBoardHeader = false;
@@ -79,6 +85,9 @@ export class Board {
   private lastCommentsBoardId: string | null = null;
   private activeCommentsLoadCardId: string | null = null;
   private commentsMutationVersion = 0;
+  private currentBoard: BoardModel | null = null;
+  private labelHydrationBoardId: string | null = null;
+  private readonly requestedLabelCardIds = new Set<string>();
 
   readonly listForm = this.formBuilder.nonNullable.group({
     title: ['', [Validators.required, Validators.minLength(1)]],
@@ -94,6 +103,27 @@ export class Board {
       .pipe(takeUntilDestroyed())
       .subscribe((user) => {
         this.currentUser = user;
+        this.cdr.markForCheck();
+      });
+
+    this.board$
+      .pipe(takeUntilDestroyed())
+      .subscribe((board) => {
+        this.currentBoard = board;
+        this.boardLabels = [...(board?.labels ?? [])];
+
+        if (!board) {
+          this.labelHydrationBoardId = null;
+          this.requestedLabelCardIds.clear();
+          return;
+        }
+
+        if (this.labelHydrationBoardId !== board.id) {
+          this.labelHydrationBoardId = board.id;
+          this.requestedLabelCardIds.clear();
+        }
+
+        this.hydrateCardLabels(board);
         this.cdr.markForCheck();
       });
 
@@ -229,6 +259,7 @@ export class Board {
     this.attachmentUploading = false;
     this.attachmentDeletingId = null;
     this.attachmentError = null;
+    this.labelError = null;
     this.loadComments(card.id);
     this.cdr.markForCheck();
   }
@@ -245,6 +276,7 @@ export class Board {
     this.attachmentUploading = false;
     this.attachmentDeletingId = null;
     this.attachmentError = null;
+    this.labelError = null;
     this.cdr.markForCheck();
   }
 
@@ -459,6 +491,136 @@ export class Board {
         },
         error: (error: unknown) => {
           this.memberAssignmentError = this.getMemberAssignmentError(error, 'Clan nije uklonjen sa kartice.');
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  canManageBoardLabels(board: BoardModel): boolean {
+    const role = board.members?.find((member) => member.userId === this.currentUser?.id)?.role;
+
+    return role === 'OWNER' || role === 'ADMIN';
+  }
+
+  toggleCardLabel(event: { cardId: string; labelId: string; assigned: boolean }): void {
+    if (!this.selectedCard || this.labelSaving) {
+      return;
+    }
+
+    this.labelSaving = true;
+    this.labelError = null;
+    const request$ = event.assigned
+      ? this.labelService.addLabelToCard(event.cardId, event.labelId)
+      : this.labelService.removeLabelFromCard(event.cardId, event.labelId);
+
+    request$
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.labelSaving = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (cardLabel) => {
+          const labels = this.selectedCard?.labels ?? [];
+          const nextLabels = event.assigned
+            ? labels.some((item) => item.labelId === cardLabel.labelId)
+              ? labels
+              : [...labels, cardLabel]
+            : labels.filter((item) => item.labelId !== event.labelId);
+
+          this.applySelectedCardLabels(nextLabels);
+          this.cdr.markForCheck();
+        },
+        error: (error: unknown) => {
+          this.labelError = this.getLabelError(error, 'Labela na kartici nije izmenjena.');
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  createBoardLabel(event: { name: string; color: string }): void {
+    if (!this.currentBoard || this.labelSaving) {
+      return;
+    }
+
+    this.labelSaving = true;
+    this.labelError = null;
+    this.labelService
+      .createLabel(this.currentBoard.id, event.name, event.color)
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.labelSaving = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (label) => this.updateBoardLabelState([...this.boardLabels, label]),
+        error: (error: unknown) => {
+          this.labelError = this.getLabelError(error, 'Labela nije kreirana.');
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  updateBoardLabel(event: { labelId: string; name: string; color: string }): void {
+    if (!this.currentBoard || this.labelSaving) {
+      return;
+    }
+
+    this.labelSaving = true;
+    this.labelError = null;
+    this.labelService
+      .updateLabel(event.labelId, event.name, event.color)
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.labelSaving = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (label) => {
+          this.updateBoardLabelState(
+            this.boardLabels.map((item) => (item.id === label.id ? label : item)),
+            (cardLabel) =>
+              cardLabel.labelId === label.id ? { ...cardLabel, label } : cardLabel,
+          );
+        },
+        error: (error: unknown) => {
+          this.labelError = this.getLabelError(error, 'Labela nije izmenjena.');
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  deleteBoardLabel(labelId: string): void {
+    if (!this.currentBoard || this.labelSaving || !confirm('Obrisati ovu labelu?')) {
+      return;
+    }
+
+    this.labelSaving = true;
+    this.labelError = null;
+    this.labelService
+      .deleteLabel(labelId)
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.labelSaving = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.updateBoardLabelState(
+            this.boardLabels.filter((label) => label.id !== labelId),
+            (cardLabel) => (cardLabel.labelId === labelId ? null : cardLabel),
+          );
+        },
+        error: (error: unknown) => {
+          this.labelError = this.getLabelError(error, 'Labela nije obrisana.');
           this.cdr.markForCheck();
         },
       });
@@ -698,6 +860,97 @@ export class Board {
 
     this.selectedCard = updatedCard;
     this.store.dispatch(updateCardSuccess({ card: updatedCard }));
+  }
+
+  private applySelectedCardLabels(labels: CardLabel[]): void {
+    if (!this.selectedCard) {
+      return;
+    }
+
+    const updatedCard = { ...this.selectedCard, labels };
+    this.selectedCard = updatedCard;
+    this.store.dispatch(updateCardSuccess({ card: updatedCard }));
+  }
+
+  private updateBoardLabelState(
+    labels: Label[],
+    updateCardLabel?: (cardLabel: CardLabel) => CardLabel | null,
+  ): void {
+    if (!this.currentBoard) {
+      return;
+    }
+
+    const updatedBoard: BoardModel = {
+      ...this.currentBoard,
+      labels: [...labels].sort((left, right) => left.name.localeCompare(right.name)),
+      lists: (this.currentBoard.lists ?? []).map((list) => ({
+        ...list,
+        cards: (list.cards ?? []).map((card) => ({
+          ...card,
+          labels: updateCardLabel
+            ? (card.labels ?? [])
+                .map(updateCardLabel)
+                .filter((item): item is CardLabel => item !== null)
+            : card.labels,
+        })),
+      })),
+    };
+
+    this.currentBoard = updatedBoard;
+    this.boardLabels = updatedBoard.labels ?? [];
+
+    if (this.selectedCard) {
+      const selectedCard = updatedBoard.lists
+        ?.flatMap((list) => list.cards ?? [])
+        .find((card) => card.id === this.selectedCard?.id);
+
+      if (selectedCard) {
+        this.selectedCard = selectedCard;
+      }
+    }
+
+    this.store.dispatch(updateBoard({ board: updatedBoard }));
+    this.cdr.markForCheck();
+  }
+
+  private hydrateCardLabels(board: BoardModel): void {
+    const cards = (board.lists ?? [])
+      .flatMap((list) => list.cards ?? [])
+      .filter((card) => card.labels === undefined && !this.requestedLabelCardIds.has(card.id));
+
+    if (cards.length === 0) {
+      return;
+    }
+
+    cards.forEach((card) => this.requestedLabelCardIds.add(card.id));
+    forkJoin(
+      cards.map((card) =>
+        this.cardService.getCard(card.id).pipe(catchError(() => of(null))),
+      ),
+    )
+      .pipe(take(1))
+      .subscribe((loadedCards) => {
+        loadedCards.forEach((card) => {
+          if (card) {
+            this.store.dispatch(updateCardSuccess({ card }));
+          }
+        });
+        this.cdr.markForCheck();
+      });
+  }
+
+  private getLabelError(error: unknown, fallback: string): string {
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 403) {
+        return 'Nemas dozvolu za ovu izmenu labele.';
+      }
+
+      if (error.status === 409) {
+        return 'Labela je vec dodata ovoj kartici.';
+      }
+    }
+
+    return fallback;
   }
 
   private getMemberAssignmentError(error: unknown, fallback: string): string {

@@ -21,6 +21,20 @@ export interface CardMember {
   user?: User;
 }
 
+export interface Label {
+  id: string;
+  name: string;
+  color: string;
+  boardId: string;
+}
+
+export interface CardLabel {
+  id: string;
+  cardId: string;
+  labelId: string;
+  label: Label;
+}
+
 export interface Attachment {
   id: string;
   filename: string;
@@ -120,7 +134,7 @@ export interface Card {
   };
   members?: CardMember[];
   attachments?: Attachment[];
-  labels?: unknown[];
+  labels?: CardLabel[];
 }
 
 export interface CardComment {
@@ -152,7 +166,7 @@ export interface Board {
   members?: BoardMember[];
   workspace?: unknown;
   lists?: BoardList[];
-  labels?: unknown[];
+  labels?: Label[];
 }
 
 export interface Notification {

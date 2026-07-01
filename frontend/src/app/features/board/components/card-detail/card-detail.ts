@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Attachment, BoardMember, Card, CardComment, CardMember, User } from '../../../../store/models';
+import { Attachment, BoardMember, Card, CardComment, CardLabel, CardMember, Label, User } from '../../../../store/models';
 
 @Component({
   selector: 'app-card-detail',
@@ -21,6 +21,10 @@ export class CardDetailComponent implements OnChanges {
   @Input() cardTitleError: string | null = null;
   @Input() boardMembers: BoardMember[] = [];
   @Input() canManageMembers = false;
+  @Input() boardLabels: Label[] = [];
+  @Input() canManageLabels = false;
+  @Input() labelSaving = false;
+  @Input() labelError: string | null = null;
   @Input() memberAssignmentSaving = false;
   @Input() memberAssignmentError: string | null = null;
   @Input() attachmentUploading = false;
@@ -35,6 +39,10 @@ export class CardDetailComponent implements OnChanges {
   @Output() delete = new EventEmitter<{ cardId: string; listId: string }>();
   @Output() assignMember = new EventEmitter<{ cardId: string; userId: string }>();
   @Output() unassignMember = new EventEmitter<{ cardId: string; userId: string }>();
+  @Output() toggleLabel = new EventEmitter<{ cardId: string; labelId: string; assigned: boolean }>();
+  @Output() createLabel = new EventEmitter<{ name: string; color: string }>();
+  @Output() updateLabel = new EventEmitter<{ labelId: string; name: string; color: string }>();
+  @Output() deleteLabel = new EventEmitter<string>();
   @Output() uploadAttachment = new EventEmitter<{ cardId: string; file: File }>();
   @Output() deleteAttachment = new EventEmitter<{ cardId: string; attachmentId: string }>();
   @Output() createComment = new EventEmitter<{ cardId: string; content: string }>();
@@ -45,6 +53,11 @@ export class CardDetailComponent implements OnChanges {
   editingCommentId: string | null = null;
   editCommentContent = '';
   selectedMemberId = '';
+  newLabelName = '';
+  newLabelColor = '#2563eb';
+  editingLabelId: string | null = null;
+  editLabelName = '';
+  editLabelColor = '#2563eb';
   failedAttachmentPreviewIds = new Set<string>();
 
   readonly form = this.formBuilder.nonNullable.group({
@@ -58,6 +71,7 @@ export class CardDetailComponent implements OnChanges {
         this.resetCommentEditor();
         this.newCommentContent = '';
         this.selectedMemberId = '';
+        this.resetLabelEditor();
         this.failedAttachmentPreviewIds.clear();
         return;
       }
@@ -69,6 +83,7 @@ export class CardDetailComponent implements OnChanges {
       this.resetCommentEditor();
       this.newCommentContent = '';
       this.selectedMemberId = '';
+      this.resetLabelEditor();
       this.failedAttachmentPreviewIds.clear();
     }
 
@@ -170,6 +185,68 @@ export class CardDetailComponent implements OnChanges {
       cardId: this.card.id,
       userId,
     });
+  }
+
+  cardLabels(): CardLabel[] {
+    return this.card?.labels ?? [];
+  }
+
+  isLabelAssigned(labelId: string): boolean {
+    return this.cardLabels().some((cardLabel) => cardLabel.labelId === labelId);
+  }
+
+  emitToggleLabel(event: Event, labelId: string): void {
+    if (!this.card || this.labelSaving) {
+      return;
+    }
+
+    this.toggleLabel.emit({
+      cardId: this.card.id,
+      labelId,
+      assigned: (event.target as HTMLInputElement).checked,
+    });
+  }
+
+  emitCreateLabel(): void {
+    const name = this.newLabelName.trim();
+
+    if (!name || this.labelSaving) {
+      return;
+    }
+
+    this.createLabel.emit({ name, color: this.newLabelColor });
+    this.newLabelName = '';
+  }
+
+  startEditLabel(label: Label): void {
+    this.editingLabelId = label.id;
+    this.editLabelName = label.name;
+    this.editLabelColor = label.color;
+  }
+
+  cancelEditLabel(): void {
+    this.resetLabelEditor();
+  }
+
+  emitUpdateLabel(): void {
+    const name = this.editLabelName.trim();
+
+    if (!this.editingLabelId || !name || this.labelSaving) {
+      return;
+    }
+
+    this.updateLabel.emit({
+      labelId: this.editingLabelId,
+      name,
+      color: this.editLabelColor,
+    });
+    this.resetLabelEditor();
+  }
+
+  emitDeleteLabel(labelId: string): void {
+    if (!this.labelSaving) {
+      this.deleteLabel.emit(labelId);
+    }
   }
 
   emitUploadAttachment(event: Event): void {
@@ -358,5 +435,11 @@ export class CardDetailComponent implements OnChanges {
   private resetCommentEditor(): void {
     this.editingCommentId = null;
     this.editCommentContent = '';
+  }
+
+  private resetLabelEditor(): void {
+    this.editingLabelId = null;
+    this.editLabelName = '';
+    this.editLabelColor = '#2563eb';
   }
 }

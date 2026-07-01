@@ -3,6 +3,17 @@
   class="tf-card block w-full p-3 text-left"
   (click)="selectCard()"
 >
+  @if (card.labels?.length) {
+    <div class="mb-2 flex flex-wrap gap-1" aria-label="Labele kartice">
+      @for (cardLabel of card.labels; track cardLabel.id) {
+        <span
+          class="h-2 w-10 rounded-full"
+          [style.backgroundColor]="cardLabel.label.color"
+          [attr.title]="cardLabel.label.name"
+        ></span>
+      }
+    </div>
+  }
   <h3 class="font-medium">{{ card.title }}</h3>
   @if (card.description) {
     <p class="mt-1 text-sm text-base-content/70">{{ card.description }}</p>

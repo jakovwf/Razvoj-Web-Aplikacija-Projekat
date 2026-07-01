@@ -55,6 +55,141 @@
 
       <section class="mt-6 border-t border-base-300 pt-4">
         <div class="mb-3 flex items-center justify-between gap-3">
+          <h3 class="text-lg font-semibold">Labele</h3>
+          @if (labelSaving) {
+            <span class="loading loading-spinner loading-sm text-primary"></span>
+          }
+        </div>
+
+        @if (labelError) {
+          <div class="alert alert-error mb-3 text-sm">{{ labelError }}</div>
+        }
+
+        @if (cardLabels().length > 0) {
+          <div class="mb-3 flex flex-wrap gap-2">
+            @for (cardLabel of cardLabels(); track cardLabel.id) {
+              <span
+                class="badge border-0 font-medium text-white shadow-sm"
+                [style.backgroundColor]="cardLabel.label.color"
+              >
+                {{ cardLabel.label.name }}
+              </span>
+            }
+          </div>
+        } @else {
+          <p class="mb-3 text-sm text-base-content/60">Kartica nema labele.</p>
+        }
+
+        <details class="dropdown w-full">
+          <summary class="btn btn-outline btn-sm">Dodaj ili ukloni labele</summary>
+          <div class="dropdown-content z-20 mt-2 w-full max-w-md rounded-box border border-base-300 bg-base-100 p-3 shadow-xl">
+            @if (boardLabels.length > 0) {
+              <div class="grid gap-2">
+                @for (label of boardLabels; track label.id) {
+                  @if (editingLabelId === label.id) {
+                    <div class="grid gap-2 rounded-lg border border-base-300 bg-base-200/40 p-2">
+                      <div class="flex gap-2">
+                        <input
+                          type="text"
+                          class="input input-bordered input-sm min-w-0 flex-1"
+                          aria-label="Naziv labele"
+                          [(ngModel)]="editLabelName"
+                          [ngModelOptions]="{ standalone: true }"
+                        />
+                        <input
+                          type="color"
+                          class="h-8 w-12 cursor-pointer rounded border border-base-300 bg-base-100 p-1"
+                          aria-label="Boja labele"
+                          [(ngModel)]="editLabelColor"
+                          [ngModelOptions]="{ standalone: true }"
+                        />
+                      </div>
+                      <div class="flex gap-2">
+                        <button
+                          type="button"
+                          class="btn btn-primary btn-xs"
+                          [disabled]="labelSaving || !editLabelName.trim()"
+                          (click)="emitUpdateLabel()"
+                        >
+                          Sacuvaj
+                        </button>
+                        <button type="button" class="btn btn-ghost btn-xs" (click)="cancelEditLabel()">
+                          Odustani
+                        </button>
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="flex items-center gap-2">
+                      <label class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg p-1 hover:bg-base-200">
+                        <input
+                          type="checkbox"
+                          class="checkbox checkbox-primary checkbox-sm"
+                          [checked]="isLabelAssigned(label.id)"
+                          [disabled]="labelSaving"
+                          (change)="emitToggleLabel($event, label.id)"
+                        />
+                        <span
+                          class="badge min-w-0 flex-1 justify-start border-0 font-medium text-white"
+                          [style.backgroundColor]="label.color"
+                        >
+                          <span class="truncate">{{ label.name }}</span>
+                        </span>
+                      </label>
+
+                      @if (canManageLabels) {
+                        <button type="button" class="btn btn-ghost btn-xs" (click)="startEditLabel(label)">
+                          Izmeni
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-error btn-outline btn-xs"
+                          [disabled]="labelSaving"
+                          (click)="emitDeleteLabel(label.id)"
+                        >
+                          Obrisi
+                        </button>
+                      }
+                    </div>
+                  }
+                }
+              </div>
+            } @else {
+              <p class="text-sm text-base-content/60">Board jos nema labele.</p>
+            }
+
+            @if (canManageLabels) {
+              <div class="divider my-3 text-xs">Nova labela</div>
+              <div class="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+                <input
+                  type="text"
+                  class="input input-bordered input-sm w-full"
+                  placeholder="Naziv labele"
+                  [(ngModel)]="newLabelName"
+                  [ngModelOptions]="{ standalone: true }"
+                />
+                <input
+                  type="color"
+                  class="h-8 w-full cursor-pointer rounded border border-base-300 bg-base-100 p-1 sm:w-12"
+                  aria-label="Boja nove labele"
+                  [(ngModel)]="newLabelColor"
+                  [ngModelOptions]="{ standalone: true }"
+                />
+                <button
+                  type="button"
+                  class="btn btn-primary btn-sm"
+                  [disabled]="labelSaving || !newLabelName.trim()"
+                  (click)="emitCreateLabel()"
+                >
+                  Kreiraj
+                </button>
+              </div>
+            }
+          </div>
+        </details>
+      </section>
+
+      <section class="mt-6 border-t border-base-300 pt-4">
+        <div class="mb-3 flex items-center justify-between gap-3">
           <h3 class="text-lg font-semibold">Clanovi</h3>
           @if (memberAssignmentSaving) {
             <span class="loading loading-spinner loading-sm text-primary"></span>
